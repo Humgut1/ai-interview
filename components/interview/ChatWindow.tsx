@@ -21,6 +21,7 @@ import {
   startSession,
 } from "@/lib/interview";
 import {
+  clearSession,
   parseSession,
   readSessionRaw,
   subscribeSession,
@@ -79,7 +80,13 @@ export default function ChatWindow({ setup }: { setup: InterviewSetup }) {
   }
 
   if (session.phase === "done") {
-    return <CompleteScreen setup={setup} session={session} />;
+    return (
+      <CompleteScreen
+        setup={setup}
+        session={session}
+        onRestart={() => clearSession(setup.token)}
+      />
+    );
   }
 
   return (

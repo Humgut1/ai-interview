@@ -1,3 +1,5 @@
+"use client";
+
 import type { InterviewSession, InterviewSetup } from "@/lib/types";
 
 const NEXT_STEPS = [
@@ -9,9 +11,11 @@ const NEXT_STEPS = [
 export default function CompleteScreen({
   setup,
   session,
+  onRestart,
 }: {
   setup: InterviewSetup;
   session: InterviewSession;
+  onRestart: () => void;
 }) {
   const answered = session.messages.filter(
     (message) => message.role === "candidate"
@@ -53,6 +57,20 @@ export default function CompleteScreen({
       <p className="mt-6 text-sm text-slate-500">
         이 창은 닫으셔도 됩니다. 제출한 답변은 그대로 전달되었습니다.
       </p>
+
+      {/* 화면 확인용. 4단계에서 서버 저장으로 옮기면서 없앤다. */}
+      <div className="mt-10 rounded-xl border border-dashed border-slate-300 px-4 py-3">
+        <p className="text-xs text-slate-500">
+          화면 확인용 기능입니다. 실제 후보자에게는 보이지 않습니다.
+        </p>
+        <button
+          type="button"
+          onClick={onRestart}
+          className="mt-2 text-xs font-semibold text-slate-700 underline underline-offset-2 hover:text-slate-900"
+        >
+          이 링크의 진행 기록을 지우고 처음부터 다시 시작
+        </button>
+      </div>
     </div>
   );
 }
