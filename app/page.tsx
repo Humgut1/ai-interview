@@ -2,7 +2,11 @@ import Link from "next/link";
 
 const steps = [
   { label: "1. 평가 기준(rubric) 설정 화면", done: true, href: "/jobs/new" },
-  { label: "2. 후보자 인터뷰 채팅 화면", done: false },
+  {
+    label: "2. 후보자 인터뷰 채팅 화면",
+    done: true,
+    href: "/interview/demo-token",
+  },
   { label: "3. 결과 리뷰 화면", done: false },
   { label: "4. 데이터베이스 · API 연결", done: false },
   { label: "5. 대시보드 · 후보자 관리", done: false },

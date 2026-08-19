@@ -52,3 +52,48 @@ export const CRITERIA_META: {
 export const MAX_FOLLOW_UPS = 3;
 export const MIN_WEIGHT = 1;
 export const MAX_WEIGHT = 10;
+
+/* ── 인터뷰(후보자 화면) ───────────────────────────── */
+
+/**
+ * 후보자에게 내려보내는 질문. 평가 기준(criteria)은 절대 포함하지 않는다.
+ * 후보자가 채점 기준을 보고 답을 맞추는 일이 없어야 한다.
+ */
+export type CandidateQuestion = {
+  id: string;
+  text: string;
+  maxFollowUps: number;
+};
+
+export type InterviewSetup = {
+  token: string;
+  jobTitle: string;
+  estimatedMinutes: number;
+  questions: CandidateQuestion[];
+};
+
+export type ChatRole = "ai" | "candidate";
+
+export type ChatMessage = {
+  id: string;
+  role: ChatRole;
+  text: string;
+  /** 어떤 질문에 딸린 발언인지. 채점 근거를 추적하려면 반드시 필요하다. */
+  questionId?: string;
+  kind: "intro" | "question" | "followUp" | "answer" | "closing";
+  at: string;
+};
+
+export type InterviewPhase = "consent" | "chat" | "done";
+
+export type InterviewSession = {
+  token: string;
+  phase: InterviewPhase;
+  messages: ChatMessage[];
+  /** 지금 진행 중인 질문의 순서 (0부터) */
+  questionIndex: number;
+  /** 현재 질문에서 이미 던진 후속 질문 수 */
+  followUpCount: number;
+  startedAt?: string;
+  completedAt?: string;
+};
