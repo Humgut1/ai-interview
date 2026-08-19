@@ -26,7 +26,7 @@
 | 단계 | 내용 | 상태 |
 | --- | --- | --- |
 | 1 | 평가 기준(rubric) 설정 화면 | ✅ 완료 (mock 데이터) |
-| 2 | 후보자 인터뷰 채팅 화면 | ⬜ 예정 |
+| 2 | 후보자 인터뷰 채팅 화면 | ✅ 완료 (mock 데이터) |
 | 3 | 결과 리뷰 리포트 화면 | ⬜ 예정 |
 | 4 | Supabase 스키마 · API 연결 | ⬜ 예정 |
 | 5 | 대시보드 · 후보자 관리 | ⬜ 예정 |
@@ -57,6 +57,21 @@
 - **직무 설명으로 질문 초안 만들기** — 현재는 정해진 초안을 돌려주는 임시 동작, 4단계에서 Claude API 로 교체
 - 저장 전 미입력 항목 검사, 임시저장(브라우저 보관) 및 이어서 작성
 
+## 2단계에서 만든 것
+
+`/interview/[token]` — 후보자가 링크만으로 들어와 진행하는 화면입니다. 로그인이 없습니다.
+
+- **시작 전 안내 화면** — 질문 수, 예상 소요 시간, 진행 방식, 데이터 활용 동의 체크박스(동의해야 시작 가능)
+- **채팅 진행** — 질문 하나씩, 진행률 표시, AI가 답변을 읽는 동안 로딩 표시
+- **후속 질문** — 답변이 짧으면 정해 둔 횟수 안에서 더 구체적으로 되물음
+- **제출 후 수정 불가** — 시작 전과 입력창 아래에 미리 안내
+- **이어하기** — 창을 닫았다 같은 링크로 다시 들어오면 진행 상태가 그대로 복원됨
+- **완료 화면** — 감사 인사와 다음 절차 안내
+
+후보자 화면에는 **평가 기준(rubric)을 절대 내려보내지 않습니다.** 질문 문장만 전달합니다. 기준을 보고 답을 맞추는 일이 없어야 하기 때문입니다.
+
+진행 상태는 지금 브라우저에 보관합니다(4단계에서 서버 저장으로 옮깁니다). 그래서 다른 기기에서 열면 이어하기가 되지 않습니다.
+
 ## 실행 방법
 
 ```bash
@@ -75,16 +90,21 @@ cp .env.example .env.local
 ## 폴더 구조
 
 ```
-app/                  화면(페이지)
-  page.tsx            홈
-  jobs/new/page.tsx   직무 · 평가 기준 만들기
+app/                        화면(페이지)
+  page.tsx                  홈
+  jobs/new/page.tsx         직무 · 평가 기준 만들기
+  interview/[token]/page.tsx 후보자 인터뷰
 components/
-  rubric/             RubricBuilder, QuestionEditor
-  ui/                 입력 필드 등 공통 조각
+  rubric/                   RubricBuilder, QuestionEditor
+  interview/                ChatWindow, ConsentScreen, MessageBubble,
+                            AnswerInput, ProgressBar, CompleteScreen
+  ui/                       입력 필드 등 공통 조각
 lib/
-  types.ts            Job / Question / Criteria 타입
-  rubric.ts           순서 변경, 비중 계산, 예상 시간, 유효성 검사
-  mock/jobs.ts        화면 확인용 가짜 데이터
+  types.ts                  Job / Question / Criteria / 인터뷰 타입
+  rubric.ts                 순서 변경, 비중 계산, 예상 시간, 유효성 검사
+  interview.ts              인터뷰 진행 규칙 (다음 질문 / 후속 질문 / 종료)
+  interview-store.ts        진행 상태 보관 (이어하기)
+  mock/                     화면 확인용 가짜 데이터
 ```
 
 ## 기술 스택
