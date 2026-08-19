@@ -17,7 +17,7 @@ export function emptyReview(): RecruiterReview {
 
 /**
  * 점수를 rubric 의 3단계로 옮긴다.
- * 경계값은 지금 코드에 고정돼 있고, 4단계에서 직무별 설정으로 뺀다.
+ * 경계값은 지금 코드에 고정돼 있고, API 연결 단계에서 직무별 설정으로 뺀다.
  */
 export function levelOf(score: number): CriteriaLevel {
   if (score >= 80) return "excellent";

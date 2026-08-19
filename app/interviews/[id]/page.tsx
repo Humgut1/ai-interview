@@ -7,7 +7,7 @@ export const metadata = {
 
 /**
  * 담당자용 결과 리포트.
- * 4단계에서 Supabase 조회 + 로그인 확인을 붙인다. 후보자는 이 화면을 볼 수 없다.
+ * API 연결 단계에서 Supabase 조회 + 로그인 확인을 붙인다. 후보자는 이 화면을 볼 수 없다.
  */
 export default async function InterviewReportPage({
   params,

@@ -12,8 +12,13 @@ const steps = [
     done: true,
     href: "/interviews/demo-report",
   },
-  { label: "4. 데이터베이스 · API 연결", done: false },
+  {
+    label: "4. 디자인 시안 · UI 방향 정하기",
+    done: true,
+    href: "/design",
+  },
   { label: "5. 대시보드 · 후보자 관리", done: false },
+  { label: "6. 데이터베이스 · API 연결 (후순위)", done: false },
 ];
 
 export default function Home() {

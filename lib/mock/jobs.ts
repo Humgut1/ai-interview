@@ -3,7 +3,7 @@ import type { Job, Question } from "@/lib/types";
 
 /**
  * 화면 확인용 가짜(mock) 데이터.
- * 실제 저장/조회는 4단계에서 Supabase 로 연결한다.
+ * 실제 저장/조회는 API 연결 단계에서 Supabase 로 연결한다.
  * 실존 회사명·실명은 쓰지 않는다.
  */
 export const sampleJob: Job = {
@@ -51,7 +51,7 @@ export const sampleJob: Job = {
 
 /**
  * "직무 설명으로 rubric 초안 생성" 버튼의 임시 동작.
- * 4단계에서 Claude API 호출로 교체된다. 지금은 정해진 초안을 잠시 뒤에 돌려준다.
+ * API 연결 단계에서 Claude API 호출로 교체된다. 지금은 정해진 초안을 잠시 뒤에 돌려준다.
  */
 export async function generateDraftQuestions(
   description: string

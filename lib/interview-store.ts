@@ -2,7 +2,7 @@ import type { InterviewSession } from "@/lib/types";
 
 /**
  * 진행 상태를 브라우저에 보관해, 창을 닫았다 다시 들어와도 이어서 진행할 수 있게 한다.
- * 4단계에서 서버(Supabase) 저장으로 옮기고, 이 파일은 오프라인 대비 캐시로 남긴다.
+ * API 연결 단계에서 서버(Supabase) 저장으로 옮기고, 이 파일은 오프라인 대비 캐시로 남긴다.
  */
 const listeners = new Set<() => void>();
 

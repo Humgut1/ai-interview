@@ -59,7 +59,7 @@ const FOLLOW_UP_PROMPTS = [
   "마지막으로 하나만 더 여쭤볼게요. 다시 같은 상황이 온다면 어떤 점을 다르게 하시겠어요?",
 ];
 
-/** 답변이 짧고 사례가 없으면 후속 질문을 던진다. 실제 판단은 4단계에서 Claude 가 한다. */
+/** 답변이 짧고 사례가 없으면 후속 질문을 던진다. 실제 판단은 API 연결 단계에서 Claude 가 한다. */
 export function decideNextStep(
   session: InterviewSession,
   setup: InterviewSetup,

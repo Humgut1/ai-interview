@@ -174,11 +174,11 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
       });
       return;
     }
-    // 4단계에서 Supabase 저장 API 로 교체된다.
+    // API 연결 단계에서 Supabase 저장 API 로 교체된다.
     console.log("[rubric] 저장할 데이터", job);
     setToast({
       tone: "ok",
-      text: "저장했습니다. (지금은 화면 확인용이라 실제 보관은 4단계에서 연결됩니다)",
+      text: "저장했습니다. (지금은 화면 확인용이라 실제 보관은 API 연결 단계에서 연결됩니다)",
     });
   }
 

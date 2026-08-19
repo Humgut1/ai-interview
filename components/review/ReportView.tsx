@@ -60,7 +60,7 @@ export default function ReportView({
   }
 
   function handleSave() {
-    // 4단계에서 Supabase 저장으로 교체한다. 지금은 화면 동작만 확인한다.
+    // API 연결 단계에서 Supabase 저장으로 교체한다. 지금은 화면 동작만 확인한다.
     console.log("검토 결과", { reportId: report.id, review });
     setToast("검토 내용을 저장했습니다. (지금은 화면 확인용입니다)");
     setTimeout(() => setToast(null), 2600);
