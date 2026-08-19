@@ -3,6 +3,14 @@
 import { useMemo } from "react";
 import { textareaClass } from "@/components/ui/Field";
 import {
+  barFillClass,
+  barTrackClass,
+  cardClass,
+  evidenceClass,
+  labelClass,
+  panelClass,
+} from "@/components/ui/styles";
+import {
   MAX_SCORE,
   MIN_SCORE,
   clampScore,
@@ -42,6 +50,9 @@ function toPieces(text: string, quotes: string[]): Piece[] {
   return pieces;
 }
 
+const stepClass =
+  "h-8 w-8 rounded-md border border-line-strong bg-surface text-base leading-none text-ink-2 transition hover:bg-canvas disabled:text-ink-3";
+
 export default function ScoreCard({
   index,
   question,
@@ -75,77 +86,68 @@ export default function ScoreCard({
   }, [score.evidence]);
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white">
-      <header className="border-b border-slate-100 px-5 py-4">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span className="font-semibold text-slate-700">문항 {index + 1}</span>
-          <span aria-hidden>·</span>
-          <span>비중 {percent}%</span>
+    <article className={cardClass}>
+      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 border-b border-line px-5 py-4">
+        <div className="min-w-[16rem] flex-1">
+          <p className={labelClass}>
+            문항 {index + 1} &nbsp;·&nbsp; 비중 {percent}%
+          </p>
+          <h3 className="mt-2 text-[15px] font-semibold leading-relaxed text-ink">
+            {question.text}
+          </h3>
         </div>
-        <h3 className="mt-2 font-semibold leading-relaxed text-slate-900">
-          {question.text}
-        </h3>
+
+        <div className="shrink-0 text-right">
+          <p className="flex items-baseline justify-end gap-2">
+            {changed ? (
+              <span className="num text-sm text-ink-3 line-through">
+                {score.score}
+              </span>
+            ) : null}
+            <span className="num text-3xl font-medium text-ink">{final}</span>
+            <span className="text-xs text-ink-3">/ {MAX_SCORE}</span>
+          </p>
+          <span
+            className={`mt-1 inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold ${shownMeta.accent}`}
+          >
+            {shownMeta.label}
+          </span>
+          <div className={`${barTrackClass} mt-2 w-36`}>
+            <div className={barFillClass} style={{ width: `${final}%` }} />
+          </div>
+        </div>
       </header>
 
-      <div className="flex flex-wrap items-center gap-5 border-b border-slate-100 px-5 py-4">
-        <div>
-          <p className="text-xs text-slate-500">AI 점수</p>
-          <p
-            className={`text-2xl font-bold tabular-nums ${
-              changed ? "text-slate-400 line-through" : "text-slate-900"
-            }`}
-          >
-            {score.score}
-          </p>
-        </div>
-
-        {changed ? (
-          <div>
-            <p className="text-xs text-slate-500">담당자 수정 점수</p>
-            <p className="text-2xl font-bold tabular-nums text-slate-900">
-              {final}
-            </p>
-          </div>
-        ) : null}
-
-        <span
-          className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${shownMeta.accent}`}
-        >
-          {shownMeta.label}
-        </span>
-      </div>
-
-      <section className="border-b border-slate-100 px-5 py-4">
-        <h4 className="text-xs font-semibold text-slate-500">채점 근거</h4>
-        <p className="mt-2 text-sm leading-relaxed text-slate-700">
+      <section className="px-5 py-4">
+        <p className={labelClass}>채점 근거</p>
+        <p className="mt-2 text-sm leading-relaxed text-ink-2">
           {score.rationale}
         </p>
 
-        <ul className="mt-3 flex flex-col gap-2">
+        <ul className={`${panelClass} mt-3 flex flex-col gap-2 px-4 py-3`}>
           {score.evidence.map((item) => (
             <li
               key={`${item.messageId}-${item.quote}`}
-              className="rounded-lg border-l-2 border-blue-400 bg-blue-50/60 px-3 py-2 text-sm leading-relaxed text-slate-700"
+              className="text-sm leading-relaxed text-ink"
             >
-              <span className="mr-1.5 text-xs font-semibold text-blue-700">
+              <span className="mr-1.5 text-[11px] font-semibold text-ink-3">
                 근거가 된 발언
               </span>
-              &ldquo;{item.quote}&rdquo;
+              <span className={evidenceClass}>
+                &ldquo;{item.quote}&rdquo;
+              </span>
             </li>
           ))}
         </ul>
       </section>
 
-      <section className="border-b border-slate-100 px-5 py-4">
-        <h4 className="text-xs font-semibold text-slate-500">답변 전문</h4>
-        <div className="mt-2 flex flex-col gap-3">
+      <section className="border-t border-line px-5 py-4">
+        <p className={labelClass}>답변 전문</p>
+        <div className="mt-2.5 flex flex-col gap-3">
           {messages.map((message) =>
             message.role === "ai" ? (
-              <p
-                key={message.id}
-                className="text-sm leading-relaxed text-slate-500"
-              >
-                <span className="mr-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+              <p key={message.id} className="text-sm leading-relaxed text-ink-3">
+                <span className="mr-1.5 rounded-sm bg-mute px-1.5 py-0.5 text-[11px] font-semibold text-ink-2">
                   {message.kind === "followUp" ? "후속 질문" : "질문"}
                 </span>
                 {message.text}
@@ -153,14 +155,14 @@ export default function ScoreCard({
             ) : (
               <p
                 key={message.id}
-                className="whitespace-pre-wrap rounded-lg bg-slate-50 px-3 py-2.5 text-sm leading-relaxed text-slate-800"
+                className="whitespace-pre-wrap border-l-2 border-line-strong pl-3 text-sm leading-relaxed text-ink"
               >
                 {toPieces(message.text, quotesByMessage[message.id] ?? []).map(
                   (piece, pieceIndex) =>
                     piece.highlighted ? (
                       <mark
                         key={pieceIndex}
-                        className="rounded bg-blue-100 px-0.5 text-slate-900"
+                        className={`${evidenceClass} text-ink`}
                       >
                         {piece.text}
                       </mark>
@@ -174,8 +176,8 @@ export default function ScoreCard({
         </div>
       </section>
 
-      <details className="border-b border-slate-100 px-5 py-3">
-        <summary className="cursor-pointer text-xs font-semibold text-slate-500">
+      <details className="border-t border-line px-5 py-3">
+        <summary className="cursor-pointer text-xs font-semibold text-ink-3">
           이 문항의 평가 기준 보기
         </summary>
         <dl className="mt-3 flex flex-col gap-2">
@@ -186,7 +188,7 @@ export default function ScoreCard({
               >
                 {meta.label}
               </dt>
-              <dd className="text-sm leading-relaxed text-slate-600">
+              <dd className="text-sm leading-relaxed text-ink-2">
                 {question.criteria[meta.key]}
               </dd>
             </div>
@@ -194,17 +196,15 @@ export default function ScoreCard({
         </dl>
       </details>
 
-      <section className="border-b border-slate-100 px-5 py-4">
-        <h4 className="text-xs font-semibold text-slate-500">
-          대면 면접에서 더 확인할 질문
-        </h4>
+      <section className="border-t border-line px-5 py-4">
+        <p className={labelClass}>대면 면접에서 더 확인할 질문</p>
         <ul className="mt-2 flex flex-col gap-1.5">
           {score.followUps.map((followUp) => (
             <li
               key={followUp}
-              className="flex gap-2 text-sm leading-relaxed text-slate-700"
+              className="flex gap-2 text-sm leading-relaxed text-ink-2"
             >
-              <span aria-hidden className="text-slate-400">
+              <span aria-hidden className="text-ink-3">
                 &ndash;
               </span>
               {followUp}
@@ -213,14 +213,24 @@ export default function ScoreCard({
         </ul>
       </section>
 
-      <section className="px-5 py-4">
+      <section className="border-t border-line bg-canvas px-5 py-4">
         <div className="flex flex-wrap items-center gap-2">
           <label
             htmlFor={`score-${question.id}`}
-            className="text-xs font-semibold text-slate-500"
+            className={`${labelClass} mr-1`}
           >
             점수 수정
           </label>
+
+          <button
+            type="button"
+            aria-label="1점 내리기"
+            disabled={final <= MIN_SCORE}
+            onClick={() => onOverride(question.id, clampScore(final - 1))}
+            className={stepClass}
+          >
+            &minus;
+          </button>
           <input
             id={`score-${question.id}`}
             type="number"
@@ -230,15 +240,23 @@ export default function ScoreCard({
             onChange={(event) =>
               onOverride(question.id, clampScore(Number(event.target.value)))
             }
-            className="w-20 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm tabular-nums focus:border-blue-500 focus:outline-none"
+            className="num h-8 w-16 rounded-md border border-line-strong bg-surface px-2 text-center text-sm text-ink focus:border-accent focus:outline-none focus:ring-3 focus:ring-accent/12"
           />
-          <span className="text-xs text-slate-400">/ {MAX_SCORE}</span>
+          <button
+            type="button"
+            aria-label="1점 올리기"
+            disabled={final >= MAX_SCORE}
+            onClick={() => onOverride(question.id, clampScore(final + 1))}
+            className={stepClass}
+          >
+            +
+          </button>
 
           {changed ? (
             <button
               type="button"
               onClick={() => onOverride(question.id, null)}
-              className="text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900"
+              className="ml-1 text-xs font-semibold text-ink-2 underline underline-offset-2 hover:text-ink"
             >
               AI 점수({score.score})로 되돌리기
             </button>
@@ -247,7 +265,7 @@ export default function ScoreCard({
 
         <label
           htmlFor={`memo-${question.id}`}
-          className="mt-4 block text-xs font-semibold text-slate-500"
+          className={`${labelClass} mt-4 block`}
         >
           담당자 메모
         </label>

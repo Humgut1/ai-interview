@@ -19,29 +19,29 @@ export default function TranscriptView({
   transcript: ChatMessage[];
 }) {
   return (
-    <details className="rounded-2xl border border-slate-200 bg-white">
-      <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-slate-900">
+    <details className="rounded-md border border-line bg-surface">
+      <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-ink">
         전체 대화 보기 ({transcript.length}개 발언)
       </summary>
 
-      <ol className="flex flex-col gap-4 border-t border-slate-100 px-5 py-5">
+      <ol className="flex flex-col gap-4 border-t border-line px-5 py-5">
         {transcript.map((message) => (
           <li key={message.id} className="flex gap-3">
             <span
               className={`mt-0.5 h-fit shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                 message.role === "ai"
-                  ? "bg-blue-50 text-blue-700"
-                  : "bg-slate-100 text-slate-700"
+                  ? "bg-accent-soft text-accent"
+                  : "bg-mute text-ink-2"
               }`}
             >
               {message.role === "ai" ? "AI" : "후보자"}
             </span>
 
             <div className="min-w-0">
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-ink-3">
                 {KIND_LABEL[message.kind]} · {clockOf(message.at)}
               </p>
-              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink">
                 {message.text}
               </p>
             </div>

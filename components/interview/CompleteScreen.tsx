@@ -25,26 +25,26 @@ export default function CompleteScreen({
     <div className="mx-auto w-full max-w-2xl px-6 py-16">
       <span
         aria-hidden
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-xl text-emerald-700"
+        className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-xl text-accent"
       >
         ✓
       </span>
-      <h1 className="mt-5 text-2xl font-bold text-slate-900">
+      <h1 className="mt-5 text-2xl font-bold text-ink">
         면접이 끝났습니다. 수고하셨습니다.
       </h1>
-      <p className="mt-3 leading-relaxed text-slate-600">
+      <p className="mt-3 leading-relaxed text-ink-2">
         {setup.jobTitle} 직무의 1차 면접에 시간 내주셔서 감사합니다. 총{" "}
         {setup.questions.length}개 질문에 {answered}번 답변해 주셨습니다.
       </p>
 
-      <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-slate-900">다음 절차</h2>
+      <section className="mt-8 rounded-md border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold text-ink">다음 절차</h2>
         <ol className="mt-3 flex flex-col gap-3">
           {NEXT_STEPS.map((step, index) => (
-            <li key={step} className="flex gap-3 text-sm text-slate-600">
+            <li key={step} className="flex gap-3 text-sm text-ink-2">
               <span
                 aria-hidden
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-mute text-[11px] font-semibold text-ink-2"
               >
                 {index + 1}
               </span>
@@ -54,19 +54,19 @@ export default function CompleteScreen({
         </ol>
       </section>
 
-      <p className="mt-6 text-sm text-slate-500">
+      <p className="mt-6 text-sm text-ink-3">
         이 창은 닫으셔도 됩니다. 제출한 답변은 그대로 전달되었습니다.
       </p>
 
       {/* 화면 확인용. API 연결 단계에서 서버 저장으로 옮기면서 없앤다. */}
-      <div className="mt-10 rounded-xl border border-dashed border-slate-300 px-4 py-3">
-        <p className="text-xs text-slate-500">
+      <div className="mt-10 rounded-md border border-dashed border-line-strong px-4 py-3">
+        <p className="text-xs text-ink-3">
           화면 확인용 기능입니다. 실제 후보자에게는 보이지 않습니다.
         </p>
         <button
           type="button"
           onClick={onRestart}
-          className="mt-2 text-xs font-semibold text-slate-700 underline underline-offset-2 hover:text-slate-900"
+          className="mt-2 text-xs font-semibold text-ink-2 underline underline-offset-2 hover:text-ink"
         >
           이 링크의 진행 기록을 지우고 처음부터 다시 시작
         </button>

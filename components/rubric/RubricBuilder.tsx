@@ -185,7 +185,7 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
   return (
     <div className="pb-28">
       {savedDraft ? (
-        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-md border border-line bg-sand px-4 py-3 text-sm text-ink-2">
           <span>이전에 작성하던 내용이 있습니다.</span>
           <button
             type="button"
@@ -194,7 +194,7 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
               setDraftDismissed(true);
               setToast({ tone: "ok", text: "임시저장한 내용을 불러왔습니다." });
             }}
-            className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+            className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
           >
             이어서 작성
           </button>
@@ -204,16 +204,16 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
               window.localStorage.removeItem(DRAFT_KEY);
               setDraftDismissed(true);
             }}
-            className="text-xs font-medium text-amber-800 underline underline-offset-2"
+            className="text-xs font-medium text-ink-2 underline underline-offset-2"
           >
             새로 시작
           </button>
         </div>
       ) : null}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">직무 정보</h2>
-        <p className="mt-1 text-sm text-slate-500">
+      <section className="rounded-md border border-line bg-surface p-5 shadow-sm">
+        <h2 className="text-base font-semibold text-ink">직무 정보</h2>
+        <p className="mt-1 text-sm text-ink-3">
           여기 적은 설명을 바탕으로 질문 초안을 만들 수 있습니다.
         </p>
 
@@ -257,12 +257,12 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
               type="button"
               onClick={handleGenerateDraft}
               disabled={generating}
-              className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-md border border-line bg-accent-soft px-3.5 py-2 text-sm font-semibold text-accent hover:bg-accent-soft disabled:opacity-60"
             >
               {generating ? (
                 <span
                   aria-hidden
-                  className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-300 border-t-blue-700"
+                  className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-line-strong border-t-blue-700"
                 />
               ) : null}
               {generating ? "초안 만드는 중…" : "직무 설명으로 질문 초안 만들기"}
@@ -273,11 +273,11 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
                 setJob({ ...sampleJob, id: job.id });
                 setToast({ tone: "ok", text: "예시 내용을 채웠습니다." });
               }}
-              className="text-xs font-medium text-slate-500 underline underline-offset-2 hover:text-slate-700"
+              className="text-xs font-medium text-ink-3 underline underline-offset-2 hover:text-ink-2"
             >
               예시로 채워보기
             </button>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-3">
               초안은 그대로 쓰지 말고 반드시 사람이 검토·수정해 주세요.
             </p>
           </div>
@@ -286,10 +286,10 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
 
       <section className="mt-8">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-ink">
             질문과 평가 기준
           </h2>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ink-3">
             카드를 끌거나 ↑↓ 버튼으로 순서를 바꿀 수 있습니다.
           </p>
         </div>
@@ -341,17 +341,17 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
         <button
           type="button"
           onClick={addQuestion}
-          className="mt-4 w-full rounded-2xl border border-dashed border-slate-300 py-3.5 text-sm font-semibold text-slate-600 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
+          className="mt-4 w-full rounded-md border border-dashed border-line-strong py-3.5 text-sm font-semibold text-ink-2 hover:border-accent hover:bg-accent-soft hover:text-accent"
         >
           + 질문 추가
         </button>
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-6 py-3">
-          <p className="text-sm text-slate-600">
-            총 <strong className="text-slate-900">{job.questions.length}</strong>
-            문항 · 예상 <strong className="text-slate-900">{minutes}</strong>분
+          <p className="text-sm text-ink-2">
+            총 <strong className="text-ink">{job.questions.length}</strong>
+            문항 · 예상 <strong className="text-ink">{minutes}</strong>분
             {validation.isValid ? null : (
               <span className="ml-2 text-rose-600">
                 미입력 {validation.errorCount}곳
@@ -362,14 +362,14 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
             <button
               type="button"
               onClick={handleTempSave}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-line-strong px-4 py-2 text-sm font-semibold text-ink-2 hover:bg-canvas"
             >
               임시저장
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
             >
               저장
             </button>
@@ -381,9 +381,9 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
         <div
           role="status"
           className={[
-            "fixed bottom-20 left-1/2 z-10 -translate-x-1/2 rounded-xl px-4 py-2.5 text-sm shadow-lg",
+            "fixed bottom-20 left-1/2 z-10 -translate-x-1/2 rounded-md px-4 py-2.5 text-sm shadow-lg",
             toast.tone === "ok"
-              ? "bg-slate-900 text-white"
+              ? "bg-ink text-white"
               : "bg-rose-600 text-white",
           ].join(" ")}
         >

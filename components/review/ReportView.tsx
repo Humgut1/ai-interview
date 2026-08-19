@@ -2,10 +2,19 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import CandidateTable from "@/components/review/CandidateTable";
+import CandidateList from "@/components/review/CandidateList";
 import ScoreCard from "@/components/review/ScoreCard";
 import TranscriptView from "@/components/review/TranscriptView";
 import { textareaClass } from "@/components/ui/Field";
+import {
+  barFillClass,
+  barTrackClass,
+  btnPrimary,
+  btnSecondary,
+  cardClass,
+  labelClass,
+  panelClass,
+} from "@/components/ui/styles";
 import {
   answerCountOf,
   clockOf,
@@ -67,154 +76,226 @@ export default function ReportView({
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-10 pb-28">
-      <Link
-        href="/"
-        className="text-sm text-slate-500 underline underline-offset-2 hover:text-slate-800"
-      >
-        &larr; 처음으로
-      </Link>
-
-      <header className="mt-4">
-        <p className="text-sm text-slate-500">{report.jobTitle}</p>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900">
-          {report.candidateLabel} 면접 결과
-        </h1>
-        <p className="mt-2 text-sm text-slate-500">
-          {dateOf(report.completedAt)} {clockOf(report.completedAt)} 완료 ·{" "}
-          {report.durationMinutes}분 소요 · 답변{" "}
-          {answerCountOf(report.transcript)}회
-        </p>
+    <div className="min-h-dvh">
+      <header className="sticky top-0 z-10 border-b border-line bg-surface">
+        <div className="mx-auto flex h-14 w-full max-w-[1400px] items-center gap-6 px-4 lg:px-6">
+          <Link href="/" className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className="flex h-6 w-6 items-center justify-center rounded-md bg-ink"
+            >
+              <span className="block h-0.5 w-3 bg-white" />
+            </span>
+            <span className="text-sm font-semibold text-ink">AI 면접 도구</span>
+          </Link>
+          <span className="hidden text-sm text-ink-3 sm:inline">
+            결과 검토
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <a href="#transcript" className={`${btnSecondary} px-3 py-1.5`}>
+              대화 전문
+            </a>
+          </div>
+        </div>
       </header>
 
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="flex flex-wrap items-end gap-6">
+      <div className="mx-auto w-full max-w-[1400px] px-4 pb-20 lg:px-6">
+        <div className="flex flex-wrap items-end justify-between gap-4 py-6">
           <div>
-            <p className="text-xs text-slate-500">종합 점수 (비중 반영)</p>
-            <p className="mt-1 flex items-baseline gap-2">
-              <span className="text-4xl font-bold tabular-nums text-slate-900">
-                {totals.final}
-              </span>
-              <span className="text-sm text-slate-400">/ 100</span>
-              <span
-                className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${finalMeta.accent}`}
-              >
-                {finalMeta.label}
-              </span>
+            <p className="text-[13px] text-ink-3">
+              채용 공고 &nbsp;&rsaquo;&nbsp; {report.jobTitle}
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">
+              {report.candidateLabel}
+            </h1>
+            <p className="mt-1 text-[13px] text-ink-2">
+              {dateOf(report.completedAt)} {clockOf(report.completedAt)} 완료
+              &nbsp;·&nbsp; {report.durationMinutes}분 &nbsp;·&nbsp; 답변{" "}
+              {answerCountOf(report.transcript)}회
             </p>
           </div>
-
-          {totals.changedCount > 0 ? (
-            <div>
-              <p className="text-xs text-slate-500">AI 원점수</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-slate-400">
-                {totals.ai}
-                <span className="ml-2 text-xs font-normal text-slate-500">
-                  {totals.changedCount}개 문항 수정됨
-                </span>
-              </p>
-            </div>
-          ) : null}
         </div>
 
-        <p className="mt-4 leading-relaxed text-slate-700">{report.summary}</p>
-      </section>
-
-      <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
-        이 점수는 <strong>판단을 돕는 자료</strong>일 뿐입니다. 합격 여부는
-        담당자가 정합니다. 점수가 실제 답변과 맞지 않는다고 판단되면 아래에서
-        직접 고치고, 그 이유를 메모로 남겨 주세요.
-      </p>
-
-      <section className="mt-8">
-        <h2 className="text-sm font-semibold text-slate-900">문항별 채점</h2>
-        <div className="mt-3 flex flex-col gap-5">
-          {report.questions.map((question, index) => {
-            const score = report.scores.find(
-              (item) => item.questionId === question.id
-            );
-            if (!score) return null;
-
-            return (
-              <ScoreCard
-                key={question.id}
-                index={index}
-                question={question}
-                score={score}
-                percent={percents[question.id] ?? 0}
-                messages={messagesFor(report, question.id)}
-                review={review}
-                onOverride={handleOverride}
-                onMemo={handleMemo}
-              />
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-slate-900">
-          종합 메모 (담당자 작성)
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          다음 전형으로 넘길지, 무엇을 더 확인할지 적어 두면 다른 담당자도 같은
-          맥락에서 볼 수 있습니다.
-        </p>
-        <textarea
-          rows={3}
-          value={review.overallMemo}
-          onChange={(event) =>
-            setReview((prev) => ({ ...prev, overallMemo: event.target.value }))
-          }
-          placeholder="예) 장애 대응 경험은 충분해 보임. 협업 부분은 대면에서 사례를 하나 더 확인 필요."
-          className={`mt-3 ${textareaClass}`}
-        />
-      </section>
-
-      <section className="mt-8">
-        <h2 className="text-sm font-semibold text-slate-900">
-          같은 직무 후보자
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          점수순으로 줄을 세우지 않습니다. 각자의 답변을 보고 판단해 주세요.
-        </p>
-        <div className="mt-3">
-          <CandidateTable rows={candidates} currentReportId={report.id} />
-        </div>
-      </section>
-
-      <section className="mt-8">
-        <h2 className="text-sm font-semibold text-slate-900">전체 트랜스크립트</h2>
-        <div className="mt-3">
-          <TranscriptView transcript={report.transcript} />
-        </div>
-      </section>
-
-      <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 px-6 py-3 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4">
-          <p className="text-xs text-slate-500">
-            {totals.changedCount > 0
-              ? `${totals.changedCount}개 문항의 점수를 고쳤습니다.`
-              : "AI 점수를 그대로 두고 있습니다."}
-          </p>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+        <div className="grid items-start gap-5 lg:grid-cols-[236px_minmax(0,1fr)_296px]">
+          {/* 왼쪽 — 같은 직무 후보자 */}
+          <aside
+            className={`${cardClass} p-3 lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto`}
           >
-            검토 내용 저장
-          </button>
+            <CandidateList rows={candidates} currentReportId={report.id} />
+          </aside>
+
+          {/* 가운데 — 채점 내용 */}
+          <div className="flex flex-col gap-4">
+            <section className={`${cardClass} p-5`}>
+              <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
+                <div>
+                  <p className={labelClass}>종합 점수 (비중 반영)</p>
+                  <p className="mt-1.5 flex items-baseline gap-2">
+                    <span className="num text-4xl font-medium text-ink">
+                      {totals.final}
+                    </span>
+                    <span className="text-sm text-ink-3">/ 100</span>
+                    <span
+                      className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${finalMeta.accent}`}
+                    >
+                      {finalMeta.label}
+                    </span>
+                  </p>
+                </div>
+
+                {totals.changedCount > 0 ? (
+                  <div>
+                    <p className={labelClass}>AI 원점수</p>
+                    <p className="mt-1.5 text-xl">
+                      <span className="num text-ink-3 line-through">
+                        {totals.ai}
+                      </span>
+                      <span className="ml-2 text-xs text-ink-2">
+                        {totals.changedCount}개 문항 수정됨
+                      </span>
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className={`${barTrackClass} mt-4`}>
+                <div
+                  className={barFillClass}
+                  style={{ width: `${totals.final}%` }}
+                />
+              </div>
+
+              <p className="mt-4 text-[15px] leading-relaxed text-ink">
+                {report.summary}
+              </p>
+              <p className="mt-3 text-xs text-ink-3">
+                점수는 참고용입니다. 합격 여부는 담당자가 정합니다.
+              </p>
+            </section>
+
+            <p className={`${panelClass} px-4 py-3 text-sm leading-relaxed text-ink-2`}>
+              이 점수는 <strong className="text-ink">판단을 돕는 자료</strong>일
+              뿐입니다. 점수가 실제 답변과 맞지 않는다고 판단되면 아래에서 직접
+              고치고, 그 이유를 메모로 남겨 주세요.
+            </p>
+
+            {report.questions.map((question, index) => {
+              const score = report.scores.find(
+                (item) => item.questionId === question.id
+              );
+              if (!score) return null;
+
+              return (
+                <ScoreCard
+                  key={question.id}
+                  index={index}
+                  question={question}
+                  score={score}
+                  percent={percents[question.id] ?? 0}
+                  messages={messagesFor(report, question.id)}
+                  review={review}
+                  onOverride={handleOverride}
+                  onMemo={handleMemo}
+                />
+              );
+            })}
+
+            <section id="transcript" className="scroll-mt-20">
+              <TranscriptView transcript={report.transcript} />
+            </section>
+          </div>
+
+          {/* 오른쪽 — 검토 */}
+          <aside className="flex flex-col gap-4 lg:sticky lg:top-[4.5rem]">
+            <section className={`${cardClass} p-4`}>
+              <p className={labelClass}>검토 현황</p>
+              <dl className="mt-3 flex flex-col gap-2.5 text-[13px]">
+                <div className="flex items-baseline justify-between">
+                  <dt className="text-ink-2">AI 채점</dt>
+                  <dd className="num text-base text-ink-3">{totals.ai}</dd>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <dt className="text-ink-2">담당자 확인</dt>
+                  <dd className="num text-base text-ink">{totals.final}</dd>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <dt className="text-ink-2">고친 문항</dt>
+                  <dd className="text-ink">
+                    <span className="num">{totals.changedCount}</span> /{" "}
+                    <span className="num">{report.questions.length}</span>
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="my-4 h-px bg-line" />
+
+              <label
+                htmlFor="overall-memo"
+                className={`${labelClass} block`}
+              >
+                전체 메모
+              </label>
+              <textarea
+                id="overall-memo"
+                rows={4}
+                value={review.overallMemo}
+                onChange={(event) =>
+                  setReview((prev) => ({
+                    ...prev,
+                    overallMemo: event.target.value,
+                  }))
+                }
+                placeholder="면접에서 확인하고 싶은 점을 적어 두세요."
+                className={`mt-2 ${textareaClass}`}
+              />
+
+              <button
+                type="button"
+                onClick={handleSave}
+                className={`${btnPrimary} mt-3 w-full`}
+              >
+                검토 내용 저장
+              </button>
+              <button type="button" className={`${btnSecondary} mt-2 w-full`}>
+                대면 면접 대상으로 표시
+              </button>
+              <p className="mt-2.5 text-[11.5px] leading-relaxed text-ink-3">
+                표시는 기록일 뿐 합격을 뜻하지 않습니다.
+              </p>
+            </section>
+
+            <section className={`${panelClass} p-4`}>
+              <p className={labelClass}>이 점수는 어떻게 나왔나요</p>
+              <dl className="mt-3 flex flex-col gap-2 text-[13px]">
+                {report.questions.map((question, index) => (
+                  <div
+                    key={question.id}
+                    className="flex items-baseline justify-between gap-3"
+                  >
+                    <dt className="truncate text-ink-2">문항 {index + 1}</dt>
+                    <dd className="num shrink-0 text-ink">
+                      {percents[question.id] ?? 0}%
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-3 text-[11.5px] leading-relaxed text-ink-2">
+                비중은 공고를 만들 때 담당자가 직접 정합니다. AI 가 바꾸지
+                않습니다.
+              </p>
+            </section>
+          </aside>
         </div>
       </div>
 
       {toast ? (
         <p
           role="status"
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-sm text-white"
+          className="fixed bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-md bg-ink px-4 py-2.5 text-sm text-white shadow-lg"
         >
           {toast}
         </p>
       ) : null}
-    </main>
+    </div>
   );
 }

@@ -24,33 +24,33 @@ const steps = [
 export default function Home() {
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-16">
-      <h1 className="text-3xl font-bold text-slate-900">AI 면접 도구</h1>
-      <p className="mt-3 leading-relaxed text-slate-600">
+      <h1 className="text-3xl font-bold text-ink">AI 면접 도구</h1>
+      <p className="mt-3 leading-relaxed text-ink-2">
         미리 정한 평가 기준에 따라 1차 면접을 진행하고, 점수와 그렇게 판단한
         근거를 정리해 줍니다. 합격 여부를 정하는 것은 언제나 사람입니다.
       </p>
 
       <Link
         href="/jobs/new"
-        className="mt-8 inline-flex rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+        className="mt-8 inline-flex rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover"
       >
         새 직무 만들기
       </Link>
 
       <section className="mt-12">
-        <h2 className="text-sm font-semibold text-slate-900">진행 상황</h2>
+        <h2 className="text-sm font-semibold text-ink">진행 상황</h2>
         <ul className="mt-3 flex flex-col gap-2">
           {steps.map((step) => (
             <li
               key={step.label}
-              className="flex items-center gap-2 text-sm text-slate-600"
+              className="flex items-center gap-2 text-sm text-ink-2"
             >
               <span
                 aria-hidden
                 className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${
                   step.done
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-slate-200 text-slate-400"
+                    ? "bg-accent-soft text-accent"
+                    : "bg-mute text-ink-3"
                 }`}
               >
                 {step.done ? "✓" : ""}

@@ -23,6 +23,11 @@ export type Job = {
   questions: Question[];
 };
 
+/**
+ * 등급 표시. 초록/노랑/빨강(신호등)을 일부러 쓰지 않는다.
+ * 색으로 합불이 정해진 것처럼 보이면 사람이 답변을 읽지 않고 색만 보게 된다.
+ * 대신 글자 진하기로만 단계를 나타낸다.
+ */
 export const CRITERIA_META: {
   key: CriteriaLevel;
   label: string;
@@ -33,19 +38,19 @@ export const CRITERIA_META: {
     key: "excellent",
     label: "우수",
     hint: "이렇게 답하면 최고점을 줄 만한 답변",
-    accent: "text-emerald-700 bg-emerald-50 border-emerald-200",
+    accent: "border-line-strong bg-mute text-ink",
   },
   {
     key: "average",
     label: "보통",
     hint: "기대 수준은 채우지만 특별하지는 않은 답변",
-    accent: "text-amber-700 bg-amber-50 border-amber-200",
+    accent: "border-line bg-mute text-ink-2",
   },
   {
     key: "poor",
     label: "미흡",
     hint: "기준에 못 미치는 답변",
-    accent: "text-rose-700 bg-rose-50 border-rose-200",
+    accent: "border-line bg-canvas text-ink-3",
   },
 ];
 

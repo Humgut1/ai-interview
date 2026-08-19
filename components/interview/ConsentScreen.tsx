@@ -22,36 +22,36 @@ export default function ConsentScreen({
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
-      <p className="text-sm font-medium text-blue-700">1차 면접 안내</p>
-      <h1 className="mt-2 text-2xl font-bold text-slate-900">
+      <p className="text-sm font-medium text-accent">1차 면접 안내</p>
+      <h1 className="mt-2 text-2xl font-bold text-ink">
         {setup.jobTitle}
       </h1>
-      <p className="mt-3 leading-relaxed text-slate-600">
+      <p className="mt-3 leading-relaxed text-ink-2">
         지원해 주셔서 감사합니다. 채팅으로 진행하는 1차 면접입니다. 준비되셨을 때
         시작해 주세요.
       </p>
 
       <dl className="mt-6 grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-          <dt className="text-xs text-slate-500">질문 수</dt>
-          <dd className="mt-1 text-lg font-semibold text-slate-900">
+        <div className="rounded-md border border-line bg-surface px-4 py-3">
+          <dt className="text-xs text-ink-3">질문 수</dt>
+          <dd className="mt-1 text-lg font-semibold text-ink">
             {setup.questions.length}문항
           </dd>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-          <dt className="text-xs text-slate-500">예상 소요 시간</dt>
-          <dd className="mt-1 text-lg font-semibold text-slate-900">
+        <div className="rounded-md border border-line bg-surface px-4 py-3">
+          <dt className="text-xs text-ink-3">예상 소요 시간</dt>
+          <dd className="mt-1 text-lg font-semibold text-ink">
             약 {setup.estimatedMinutes}분
           </dd>
         </div>
       </dl>
 
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-slate-900">진행 방식</h2>
+      <section className="mt-6 rounded-md border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold text-ink">진행 방식</h2>
         <ul className="mt-3 flex flex-col gap-2">
           {NOTICES.map((notice) => (
-            <li key={notice} className="flex gap-2 text-sm text-slate-600">
-              <span aria-hidden className="mt-0.5 text-slate-400">
+            <li key={notice} className="flex gap-2 text-sm text-ink-2">
+              <span aria-hidden className="mt-0.5 text-ink-3">
                 ·
               </span>
               <span className="leading-relaxed">{notice}</span>
@@ -60,20 +60,20 @@ export default function ConsentScreen({
         </ul>
       </section>
 
-      <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-slate-900">
+      <section className="mt-4 rounded-md border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold text-ink">
           답변 데이터 활용 동의
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+        <p className="mt-2 text-sm leading-relaxed text-ink-2">
           작성하신 답변은 이 채용 전형의 평가 자료로만 사용되며, 채용 담당자가
           내용을 확인합니다. 최종 합격 여부는 사람이 판단합니다.
         </p>
-        <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-slate-800">
+        <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-ink">
           <input
             type="checkbox"
             checked={agreed}
             onChange={(event) => setAgreed(event.target.checked)}
-            className="mt-0.5 h-4 w-4 accent-blue-600"
+            className="mt-0.5 h-4 w-4 accent-accent"
           />
           <span>위 내용을 확인했고, 답변 데이터 활용에 동의합니다.</span>
         </label>
@@ -83,12 +83,12 @@ export default function ConsentScreen({
         type="button"
         onClick={onStart}
         disabled={!agreed}
-        className="mt-6 w-full rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className="mt-6 w-full rounded-md bg-accent py-3.5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-mute"
       >
         면접 시작하기
       </button>
       {agreed ? null : (
-        <p className="mt-2 text-center text-xs text-slate-500">
+        <p className="mt-2 text-center text-xs text-ink-3">
           동의하셔야 시작할 수 있습니다.
         </p>
       )}

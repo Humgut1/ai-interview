@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 export const inputClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100";
+  "w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none focus:ring-3 focus:ring-accent/12";
 
 export const textareaClass = `${inputClass} resize-y leading-relaxed`;
 
@@ -29,12 +29,12 @@ export function Field({
     <div className="flex flex-col gap-1.5">
       <label
         htmlFor={htmlFor}
-        className="flex items-baseline gap-2 text-sm font-medium text-slate-800"
+        className="flex items-baseline gap-2 text-sm font-medium text-ink"
       >
         {label}
         {required ? <span className="text-rose-500">*</span> : null}
         {hint ? (
-          <span className="text-xs font-normal text-slate-500">{hint}</span>
+          <span className="text-xs font-normal text-ink-3">{hint}</span>
         ) : null}
       </label>
       {children}
