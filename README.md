@@ -1,36 +1,94 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI 면접 도구
 
-## Getting Started
+미리 정한 **평가 기준(rubric)** 에 따라 1차 면접을 진행하고, 점수와 **그렇게 판단한 근거**를 정리해 사람이 검토할 수 있게 해 주는 도구입니다.
 
-First, run the development server:
+> 합격 여부를 정하는 것은 언제나 사람입니다. AI 는 점수와 근거만 제시합니다.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 어떻게 쓰나요
+
+```
+① 인사담당자가 직무와 평가 기준을 만든다      ← 지금 구현된 부분
+② 후보자에게 인터뷰 링크를 보낸다
+③ 후보자가 링크를 열고 AI 와 채팅으로 면접을 본다
+④ AI 가 기준대로 채점하고 근거가 된 답변을 함께 남긴다
+⑤ 사람이 결과를 검토하고 최종 판단을 한다
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 설계 원칙
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **AI 는 합불을 결정하지 않는다.** 점수와 근거만 제시하고 판단은 사람이 한다.
+- **모든 점수에는 근거가 된 답변 원문이 함께 저장된다.** 나중에 왜 그런 점수가 나왔는지 확인할 수 있어야 한다.
+- **억양·유창성·성격은 평가하지 않는다.** rubric 에 적힌 내용만 평가한다.
+- **후보자 화면은 불안감을 줄이는 방향으로 만든다.** 진행률 표시, 이어하기, 명확한 사전 안내.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 진행 상황
 
-## Learn More
+| 단계 | 내용 | 상태 |
+| --- | --- | --- |
+| 1 | 평가 기준(rubric) 설정 화면 | ✅ 완료 (mock 데이터) |
+| 2 | 후보자 인터뷰 채팅 화면 | ⬜ 예정 |
+| 3 | 결과 리뷰 리포트 화면 | ⬜ 예정 |
+| 4 | Supabase 스키마 · API 연결 | ⬜ 예정 |
+| 5 | 대시보드 · 후보자 관리 | ⬜ 예정 |
 
-To learn more about Next.js, take a look at the following resources:
+현재는 화면 확인 단계라 저장 버튼을 눌러도 실제로 보관되지 않습니다(임시저장은 브라우저에만 저장). 실제 저장은 4단계에서 연결합니다.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 화면 구성 (계획 포함)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| 경로 | 설명 | 접근 |
+| --- | --- | --- |
+| `/jobs/new` | 직무 · 평가 기준 만들기 | 관리자 |
+| `/jobs/[id]/edit` | 평가 기준 수정 | 관리자 |
+| `/jobs/[id]/candidates` | 후보자 관리, 인터뷰 링크 발급 | 관리자 |
+| `/jobs/[id]/compare` | 후보자 점수 비교 | 관리자 |
+| `/interview/[token]` | 후보자 인터뷰 진행 | 링크(토큰)만으로 접근 |
+| `/interviews/[id]` | 결과 리포트 | 관리자 |
+| `/dashboard` | 직무 목록 · 요약 통계 | 관리자 |
 
-## Deploy on Vercel
+## 1단계에서 만든 것
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`/jobs/new` 한 화면입니다.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 직무명 · 직무 설명 입력
+- 질문 추가 / 삭제 / 순서 변경 (드래그 또는 ↑↓ 버튼)
+- 질문마다 **우수 · 보통 · 미흡** 세 단계의 답변 기준 작성
+- 질문별 **비중** — 정수로 입력하면 전체 대비 %를 자동 계산(합계는 항상 100%)
+- 질문별 **후속 질문 최대 횟수** (0~3회)
+- **직무 설명으로 질문 초안 만들기** — 현재는 정해진 초안을 돌려주는 임시 동작, 4단계에서 Claude API 로 교체
+- 저장 전 미입력 항목 검사, 임시저장(브라우저 보관) 및 이어서 작성
+
+## 실행 방법
+
+```bash
+npm install
+npm run dev
+```
+
+브라우저에서 http://localhost:3000 을 엽니다.
+
+환경변수는 `.env.example` 을 복사해 `.env.local` 로 만들어 채웁니다. 실제 키가 담긴 `.env.local` 은 git 에 올라가지 않습니다.
+
+```bash
+cp .env.example .env.local
+```
+
+## 폴더 구조
+
+```
+app/                  화면(페이지)
+  page.tsx            홈
+  jobs/new/page.tsx   직무 · 평가 기준 만들기
+components/
+  rubric/             RubricBuilder, QuestionEditor
+  ui/                 입력 필드 등 공통 조각
+lib/
+  types.ts            Job / Question / Criteria 타입
+  rubric.ts           순서 변경, 비중 계산, 예상 시간, 유효성 검사
+  mock/jobs.ts        화면 확인용 가짜 데이터
+```
+
+## 기술 스택
+
+Next.js (App Router) · TypeScript · Tailwind CSS · Supabase(예정) · Claude API(예정)
+
+외부 UI 라이브러리는 쓰지 않고, 데이터는 ORM 없이 Supabase 를 직접 조회할 예정입니다.
