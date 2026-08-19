@@ -7,7 +7,11 @@ const steps = [
     done: true,
     href: "/interview/demo-token",
   },
-  { label: "3. 결과 리뷰 화면", done: false },
+  {
+    label: "3. 결과 리뷰 화면",
+    done: true,
+    href: "/interviews/demo-report",
+  },
   { label: "4. 데이터베이스 · API 연결", done: false },
   { label: "5. 대시보드 · 후보자 관리", done: false },
 ];

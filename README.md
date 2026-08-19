@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | 1 | 평가 기준(rubric) 설정 화면 | ✅ 완료 (mock 데이터) |
 | 2 | 후보자 인터뷰 채팅 화면 | ✅ 완료 (mock 데이터) |
-| 3 | 결과 리뷰 리포트 화면 | ⬜ 예정 |
+| 3 | 결과 리뷰 리포트 화면 | ✅ 완료 (mock 데이터) |
 | 4 | Supabase 스키마 · API 연결 | ⬜ 예정 |
 | 5 | 대시보드 · 후보자 관리 | ⬜ 예정 |
 
@@ -72,6 +72,20 @@
 
 진행 상태는 지금 브라우저에 보관합니다(4단계에서 서버 저장으로 옮깁니다). 그래서 다른 기기에서 열면 이어하기가 되지 않습니다.
 
+## 3단계에서 만든 것
+
+`/interviews/[id]` — 담당자가 면접 결과를 검토하는 화면입니다.
+
+- **종합 점수 + 한 줄 요약** — 질문 비중을 반영한 가중 평균
+- **문항별 카드** — 질문 / 답변 전문 / AI 점수 / 채점 근거
+- **근거가 된 발언 표시** — 점수의 이유가 된 문장을 따로 뽑아 주고, 답변 전문에서도 같은 문장을 형광펜으로 표시합니다. "왜 이 점수인지"를 원문에서 바로 확인할 수 있습니다.
+- **담당자 점수 수정 + 메모** — AI 점수는 그대로 두고 수정값을 따로 보관합니다. 언제든 AI 점수로 되돌릴 수 있고, 종합 점수는 수정값 기준으로 다시 계산됩니다.
+- **대면 면접용 추천 질문** — 문항마다 더 확인해 볼 질문
+- **전체 트랜스크립트** — 오간 대화 전문
+- **같은 직무 후보자 목록** — 일부러 점수순 정렬을 하지 않습니다. 줄을 세우는 순간 AI 점수가 합불처럼 읽히기 때문입니다.
+
+이 화면은 담당자만 봅니다. 평가 기준(rubric)도 여기서만 보입니다. 검토 내용 저장은 아직 화면 동작만 있고, 실제 저장은 4단계에서 연결합니다.
+
 ## 실행 방법
 
 ```bash
@@ -94,16 +108,20 @@ app/                        화면(페이지)
   page.tsx                  홈
   jobs/new/page.tsx         직무 · 평가 기준 만들기
   interview/[token]/page.tsx 후보자 인터뷰
+  interviews/[id]/page.tsx  결과 리포트
 components/
   rubric/                   RubricBuilder, QuestionEditor
   interview/                ChatWindow, ConsentScreen, MessageBubble,
                             AnswerInput, ProgressBar, CompleteScreen
+  review/                   ReportView, ScoreCard, TranscriptView,
+                            CandidateTable
   ui/                       입력 필드 등 공통 조각
 lib/
-  types.ts                  Job / Question / Criteria / 인터뷰 타입
+  types.ts                  Job / Question / Criteria / 인터뷰 · 리포트 타입
   rubric.ts                 순서 변경, 비중 계산, 예상 시간, 유효성 검사
   interview.ts              인터뷰 진행 규칙 (다음 질문 / 후속 질문 / 종료)
   interview-store.ts        진행 상태 보관 (이어하기)
+  review.ts                 종합 점수 계산, 등급 환산, 근거 문장 찾기
   mock/                     화면 확인용 가짜 데이터
 ```
 

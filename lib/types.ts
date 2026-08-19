@@ -97,3 +97,61 @@ export type InterviewSession = {
   startedAt?: string;
   completedAt?: string;
 };
+
+/* ── 결과 리포트(관리자 화면) ───────────────────────────── */
+
+/** 점수의 근거가 된 후보자 발언. 원문 그대로 남긴다. */
+export type Evidence = {
+  /** 트랜스크립트의 어느 발언인지 */
+  messageId: string;
+  /** 답변 원문에서 그대로 따온 문장 */
+  quote: string;
+};
+
+export type QuestionScore = {
+  questionId: string;
+  /** 0~100 */
+  score: number;
+  /** 왜 이 점수인지. 어떤 발언 때문인지 반드시 적는다. */
+  rationale: string;
+  /** 근거가 된 발언. 비어 있으면 안 된다. */
+  evidence: Evidence[];
+  /** 대면 면접에서 더 확인해 볼 질문 */
+  followUps: string[];
+};
+
+/** 사람이 손댄 부분. AI 점수는 그대로 두고 따로 보관한다. */
+export type RecruiterReview = {
+  /** questionId → 담당자가 고쳐 넣은 점수 */
+  overrides: Record<string, number>;
+  /** questionId → 담당자 메모 */
+  memos: Record<string, string>;
+  overallMemo: string;
+};
+
+export type InterviewReport = {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  /** 개인 식별 정보는 최소한만 다룬다. 화면 확인용은 익명 라벨. */
+  candidateLabel: string;
+  completedAt: string;
+  durationMinutes: number;
+  /** 한 줄 요약 */
+  summary: string;
+  /** 채점에 쓰인 rubric. 관리자에게만 보인다. */
+  questions: Question[];
+  scores: QuestionScore[];
+  transcript: ChatMessage[];
+};
+
+/** 같은 직무의 다른 후보자 목록 한 줄 */
+export type CandidateRow = {
+  reportId: string;
+  candidateLabel: string;
+  completedAt: string;
+  aiScore: number;
+  /** 담당자가 검토를 마쳤으면 최종 점수 */
+  finalScore?: number;
+  status: "미검토" | "검토중" | "검토완료";
+};
