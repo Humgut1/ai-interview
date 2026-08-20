@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { btnPrimary, cardClass, labelClass, panelClass } from "@/components/ui/styles";
 import type { InterviewSetup } from "@/lib/types";
 
 const NOTICES = [
@@ -21,9 +22,9 @@ export default function ConsentScreen({
   const [agreed, setAgreed] = useState(false);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-12">
-      <p className="text-sm font-medium text-accent">1차 면접 안내</p>
-      <h1 className="mt-2 text-2xl font-bold text-ink">
+    <div className="mx-auto w-full max-w-2xl px-5 pb-28 pt-10">
+      <p className={labelClass}>1차 면접 안내</p>
+      <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink">
         {setup.jobTitle}
       </h1>
       <p className="mt-3 leading-relaxed text-ink-2">
@@ -31,39 +32,45 @@ export default function ConsentScreen({
         시작해 주세요.
       </p>
 
-      <dl className="mt-6 grid grid-cols-2 gap-3">
-        <div className="rounded-md border border-line bg-surface px-4 py-3">
-          <dt className="text-xs text-ink-3">질문 수</dt>
-          <dd className="mt-1 text-lg font-semibold text-ink">
-            {setup.questions.length}문항
+      <dl className={`${cardClass} mt-6 grid grid-cols-3 divide-x divide-line`}>
+        <div className="px-4 py-3.5">
+          <dt className={labelClass}>질문 수</dt>
+          <dd className="num mt-1.5 text-xl text-ink">
+            {setup.questions.length}
+            <span className="ml-0.5 text-xs text-ink-3">문항</span>
           </dd>
         </div>
-        <div className="rounded-md border border-line bg-surface px-4 py-3">
-          <dt className="text-xs text-ink-3">예상 소요 시간</dt>
-          <dd className="mt-1 text-lg font-semibold text-ink">
-            약 {setup.estimatedMinutes}분
+        <div className="px-4 py-3.5">
+          <dt className={labelClass}>예상 소요</dt>
+          <dd className="num mt-1.5 text-xl text-ink">
+            {setup.estimatedMinutes}
+            <span className="ml-0.5 text-xs text-ink-3">분</span>
           </dd>
+        </div>
+        <div className="px-4 py-3.5">
+          <dt className={labelClass}>제한 시간</dt>
+          <dd className="mt-1.5 text-xl text-ink">없음</dd>
         </div>
       </dl>
 
-      <section className="mt-6 rounded-md border border-line bg-surface p-5">
-        <h2 className="text-sm font-semibold text-ink">진행 방식</h2>
-        <ul className="mt-3 flex flex-col gap-2">
-          {NOTICES.map((notice) => (
-            <li key={notice} className="flex gap-2 text-sm text-ink-2">
-              <span aria-hidden className="mt-0.5 text-ink-3">
-                ·
+      <section className={`${cardClass} mt-4 px-5 py-4`}>
+        <h2 className={labelClass}>진행 방식</h2>
+        <ol className="mt-3 flex flex-col divide-y divide-line">
+          {NOTICES.map((notice, index) => (
+            <li key={notice} className="flex gap-3 py-2.5 first:pt-0 last:pb-0">
+              <span aria-hidden className="num shrink-0 text-xs text-ink-3">
+                {String(index + 1).padStart(2, "0")}
               </span>
-              <span className="leading-relaxed">{notice}</span>
+              <span className="text-sm leading-relaxed text-ink-2">
+                {notice}
+              </span>
             </li>
           ))}
-        </ul>
+        </ol>
       </section>
 
-      <section className="mt-4 rounded-md border border-line bg-surface p-5">
-        <h2 className="text-sm font-semibold text-ink">
-          답변 데이터 활용 동의
-        </h2>
+      <section className={`${panelClass} mt-4 px-5 py-4`}>
+        <h2 className={labelClass}>답변 데이터 활용 동의</h2>
         <p className="mt-2 text-sm leading-relaxed text-ink-2">
           작성하신 답변은 이 채용 전형의 평가 자료로만 사용되며, 채용 담당자가
           내용을 확인합니다. 최종 합격 여부는 사람이 판단합니다.
@@ -79,19 +86,24 @@ export default function ConsentScreen({
         </label>
       </section>
 
-      <button
-        type="button"
-        onClick={onStart}
-        disabled={!agreed}
-        className="mt-6 w-full rounded-md bg-accent py-3.5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-mute"
-      >
-        면접 시작하기
-      </button>
-      {agreed ? null : (
-        <p className="mt-2 text-center text-xs text-ink-3">
-          동의하셔야 시작할 수 있습니다.
-        </p>
-      )}
+      {/* 화면이 길어도 시작 버튼은 늘 아래에 붙어 있게 한다. */}
+      <div className="fixed inset-x-0 bottom-0 border-t border-line bg-surface px-5 py-3">
+        <div className="mx-auto w-full max-w-2xl">
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={!agreed}
+            className={`${btnPrimary} w-full py-3`}
+          >
+            면접 시작하기
+          </button>
+          {agreed ? null : (
+            <p className="mt-1.5 text-center text-xs text-ink-3">
+              동의하셔야 시작할 수 있습니다.
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

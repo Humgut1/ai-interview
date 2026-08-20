@@ -13,7 +13,7 @@ const steps = [
     href: "/interviews/demo-report",
   },
   {
-    label: "4. 디자인 시안 · UI 방향 정하기",
+    label: "4. 화면 규칙 · 스타일 가이드",
     done: true,
     href: "/design",
   },

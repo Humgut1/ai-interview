@@ -91,7 +91,7 @@ export default function ChatWindow({ setup }: { setup: InterviewSetup }) {
 
   return (
     <div className="flex h-dvh flex-col">
-      <header className="border-b border-line bg-surface px-4 py-3">
+      <header className="shrink-0 border-b border-line bg-surface px-4 py-3">
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-2.5">
           <p className="truncate text-sm font-semibold text-ink">
             {setup.jobTitle} · 1차 면접
@@ -104,8 +104,8 @@ export default function ChatWindow({ setup }: { setup: InterviewSetup }) {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
+      <div className="flex-1 overflow-y-auto bg-canvas px-4 py-6">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
           {resumed ? (
             <p className="self-center rounded-full bg-mute px-3 py-1 text-xs text-ink-2">
               이전에 진행하던 면접을 이어서 진행합니다.
@@ -119,27 +119,19 @@ export default function ChatWindow({ setup }: { setup: InterviewSetup }) {
           {pendingAnswer ? <MessageBubble message={pendingAnswer} /> : null}
 
           {thinking ? (
-            <div className="flex items-center gap-2.5">
-              <span
-                aria-hidden
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent"
-              >
-                AI
-              </span>
-              <div
-                role="status"
-                className="flex items-center gap-1.5 rounded-md rounded-tl-sm border border-line bg-surface px-4 py-3.5"
-              >
-                <span className="sr-only">답변을 읽고 있습니다</span>
-                {[0, 150, 300].map((delay) => (
-                  <span
-                    key={delay}
-                    aria-hidden
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-3"
-                    style={{ animationDelay: `${delay}ms` }}
-                  />
-                ))}
-              </div>
+            <div
+              role="status"
+              className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-4 py-3.5"
+            >
+              <span className="sr-only">답변을 읽고 있습니다</span>
+              {[0, 150, 300].map((delay) => (
+                <span
+                  key={delay}
+                  aria-hidden
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-3"
+                  style={{ animationDelay: `${delay}ms` }}
+                />
+              ))}
             </div>
           ) : null}
 
