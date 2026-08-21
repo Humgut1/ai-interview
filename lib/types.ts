@@ -160,3 +160,40 @@ export type CandidateRow = {
   finalScore?: number;
   status: "미검토" | "검토중" | "검토완료";
 };
+
+/* ── 후보자 관리 · 대시보드 ───────────────────────────── */
+
+/**
+ * 후보자가 지금 전형의 어디쯤 있는지.
+ * 검토 상태(미검토/검토중/검토완료)와는 다른 축이다. 제출을 해야 검토가 시작된다.
+ */
+export type CandidateStage = "링크발급" | "진행중" | "제출완료";
+
+export type ReviewStatus = CandidateRow["status"];
+
+/** 후보자 관리 화면의 한 줄. 개인정보는 익명 라벨과 링크 토큰만 다룬다. */
+export type Candidate = {
+  id: string;
+  label: string;
+  /** 인터뷰 링크에 들어가는 값. 이 값만 있으면 누구나 면접에 들어갈 수 있다. */
+  token: string;
+  invitedAt: string;
+  stage: CandidateStage;
+  /** 아래 항목은 제출을 마친 후보자에게만 있다. */
+  reportId?: string;
+  completedAt?: string;
+  aiScore?: number;
+  finalScore?: number;
+  reviewStatus?: ReviewStatus;
+};
+
+/** 대시보드 목록에 쓰는 공고 한 줄. 질문 본문까지는 담지 않는다. */
+export type JobSummary = {
+  id: string;
+  title: string;
+  status: "진행중" | "마감";
+  createdAt: string;
+  questionCount: number;
+  /** 마지막으로 누군가 답변을 제출하거나 링크를 받은 시각 */
+  lastActivityAt: string;
+};

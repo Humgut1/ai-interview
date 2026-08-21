@@ -17,7 +17,7 @@ const steps = [
     done: true,
     href: "/design",
   },
-  { label: "5. 대시보드 · 후보자 관리", done: false },
+  { label: "5. 대시보드 · 후보자 관리", done: true, href: "/dashboard" },
   { label: "6. 데이터베이스 · API 연결 (후순위)", done: false },
 ];
 
@@ -31,10 +31,10 @@ export default function Home() {
       </p>
 
       <Link
-        href="/jobs/new"
+        href="/dashboard"
         className="mt-8 inline-flex rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover"
       >
-        새 직무 만들기
+        대시보드 열기
       </Link>
 
       <section className="mt-12">

@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import CandidateList from "@/components/review/CandidateList";
 import ScoreCard from "@/components/review/ScoreCard";
 import TranscriptView from "@/components/review/TranscriptView";
 import { textareaClass } from "@/components/ui/Field";
+import TopBar from "@/components/ui/TopBar";
 import {
   barFillClass,
   barTrackClass,
@@ -77,27 +77,14 @@ export default function ReportView({
 
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-10 border-b border-line bg-surface">
-        <div className="mx-auto flex h-14 w-full max-w-[1400px] items-center gap-6 px-4 lg:px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="flex h-6 w-6 items-center justify-center rounded-md bg-ink"
-            >
-              <span className="block h-0.5 w-3 bg-white" />
-            </span>
-            <span className="text-sm font-semibold text-ink">AI 면접 도구</span>
-          </Link>
-          <span className="hidden text-sm text-ink-3 sm:inline">
-            결과 검토
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <a href="#transcript" className={`${btnSecondary} px-3 py-1.5`}>
-              대화 전문
-            </a>
-          </div>
-        </div>
-      </header>
+      <TopBar
+        current="결과 검토"
+        right={
+          <a href="#transcript" className={`${btnSecondary} px-3 py-1.5`}>
+            대화 전문
+          </a>
+        }
+      />
 
       <div className="mx-auto w-full max-w-[1400px] px-4 pb-20 lg:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4 py-6">
