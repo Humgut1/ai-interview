@@ -9,7 +9,7 @@ import {
 } from "react";
 import QuestionEditor from "@/components/rubric/QuestionEditor";
 import { Field, inputClass, textareaClass } from "@/components/ui/Field";
-import { generateDraftQuestions, sampleJob } from "@/lib/mock/jobs";
+import { sampleJob } from "@/lib/mock/jobs";
 import {
   clampWeight,
   createQuestion,
@@ -21,6 +21,11 @@ import {
 import type { CriteriaLevel, Job, Question } from "@/lib/types";
 
 const DRAFT_KEY = "ai-interview:job-draft";
+
+/** /api/questions/draft 가 돌려주는 모양 */
+type DraftResponse =
+  | { ok: true; source: "ai" | "sample"; questions: Question[]; notice?: string }
+  | { ok: false; reason: string };
 
 /** 다른 탭에서 임시저장이 바뀌는 경우까지 감지한다. */
 function subscribeDraft(onChange: () => void) {
@@ -148,11 +153,35 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
 
     setGenerating(true);
     try {
-      const questions = await generateDraftQuestions(job.description);
-      setJob((prev) => ({ ...prev, questions }));
+      // 키는 서버에만 있으므로, 브라우저는 우리 서버에 부탁만 한다.
+      const response = await fetch("/api/questions/draft", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: job.title,
+          description: job.description,
+        }),
+      });
+      const data = (await response.json()) as DraftResponse;
+
+      if (!data.ok) {
+        setToast({ tone: "warn", text: data.reason });
+        return;
+      }
+
+      setJob((prev) => ({ ...prev, questions: data.questions }));
+      setToast(
+        data.source === "ai"
+          ? {
+              tone: "ok",
+              text: "직무 설명을 읽고 초안을 만들었습니다. 그대로 쓰지 말고 문장을 검토해 주세요.",
+            }
+          : { tone: "warn", text: data.notice ?? "예시 초안을 넣었습니다." }
+      );
+    } catch {
       setToast({
-        tone: "ok",
-        text: "초안을 만들었습니다. 회사 상황에 맞게 문장을 다듬어 주세요.",
+        tone: "warn",
+        text: "초안을 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.",
       });
     } finally {
       setGenerating(false);
@@ -265,7 +294,9 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
                   className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-line-strong border-t-blue-700"
                 />
               ) : null}
-              {generating ? "초안 만드는 중…" : "직무 설명으로 질문 초안 만들기"}
+              {generating
+                ? "AI 가 초안 만드는 중…"
+                : "직무 설명으로 질문 초안 만들기"}
             </button>
             <button
               type="button"
@@ -278,7 +309,9 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
               예시로 채워보기
             </button>
             <p className="text-xs text-ink-3">
-              초안은 그대로 쓰지 말고 반드시 사람이 검토·수정해 주세요.
+              {generating
+                ? "20초쯤 걸립니다. 화면을 닫지 말고 기다려 주세요."
+                : "초안은 그대로 쓰지 말고 반드시 사람이 검토·수정해 주세요."}
             </p>
           </div>
         </div>

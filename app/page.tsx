@@ -18,7 +18,13 @@ const steps = [
     href: "/design",
   },
   { label: "5. 대시보드 · 후보자 관리", done: true, href: "/dashboard" },
-  { label: "6. 데이터베이스 · API 연결 (후순위)", done: false },
+  {
+    label: "6. Claude 연결 ① 질문·평가 기준 초안 생성",
+    done: true,
+    href: "/jobs/new",
+  },
+  { label: "7. Claude 연결 ② 답변 채점 · 후속 질문", done: false },
+  { label: "8. 데이터베이스(Supabase) 저장 연결", done: false },
 ];
 
 export default function Home() {

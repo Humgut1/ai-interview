@@ -50,14 +50,11 @@ export const sampleJob: Job = {
 };
 
 /**
- * "직무 설명으로 rubric 초안 생성" 버튼의 임시 동작.
- * API 연결 단계에서 Claude API 호출로 교체된다. 지금은 정해진 초안을 잠시 뒤에 돌려준다.
+ * Claude API 키가 없을 때 대신 보여 주는 예시 초안.
+ * 직무 설명을 읽고 만든 것이 아니라 미리 적어 둔 문장이라, 화면에서 그 사실을 밝힌다.
+ * 실제 초안 생성은 lib/ai/draft-questions.ts 가 한다.
  */
-export async function generateDraftQuestions(
-  description: string
-): Promise<Question[]> {
-  await new Promise((resolve) => setTimeout(resolve, 900));
-
+export function sampleDraftQuestions(description: string): Question[] {
   const base: Question[] = [
     createQuestion({
       text: "이 직무와 가장 가까웠던 최근 업무 경험을 하나 골라, 맡은 역할과 결과를 말씀해 주세요.",
