@@ -7,7 +7,9 @@ import {
   useSyncExternalStore,
   type DragEvent,
 } from "react";
+import { useRouter } from "next/navigation";
 import QuestionEditor from "@/components/rubric/QuestionEditor";
+import { saveJobAction } from "@/app/actions";
 import { Field, inputClass, textareaClass } from "@/components/ui/Field";
 import { sampleJob } from "@/lib/mock/jobs";
 import {
@@ -49,6 +51,8 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
   const [job, setJob] = useState<Job>(initialJob);
   const [showErrors, setShowErrors] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const router = useRouter();
   const [toast, setToast] = useState<{ tone: "ok" | "warn"; text: string } | null>(
     null
   );
@@ -194,7 +198,8 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
     setToast({ tone: "ok", text: "임시저장했습니다. 이 브라우저에만 보관됩니다." });
   }
 
-  function handleSave() {
+  async function handleSave() {
+    if (saving) return;
     if (!validation.isValid) {
       setShowErrors(true);
       setToast({
@@ -203,12 +208,15 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
       });
       return;
     }
-    // API 연결 단계에서 Supabase 저장 API 로 교체된다.
-    console.log("[rubric] 저장할 데이터", job);
-    setToast({
-      tone: "ok",
-      text: "저장했습니다. (지금은 화면 확인용이라 실제 보관은 API 연결 단계에서 연결됩니다)",
-    });
+    setSaving(true);
+    const result = await saveJobAction(job);
+    if (!result.ok) {
+      setSaving(false);
+      setToast({ tone: "warn", text: result.reason });
+      return;
+    }
+    window.localStorage.removeItem(DRAFT_KEY);
+    router.push(`/jobs/${result.id}/candidates`);
   }
 
   return (
@@ -402,9 +410,10 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
             <button
               type="button"
               onClick={handleSave}
+              disabled={saving}
               className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
             >
-              저장
+              {saving ? "저장 중" : "저장"}
             </button>
           </div>
         </div>

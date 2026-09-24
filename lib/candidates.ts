@@ -45,24 +45,6 @@ export function filterByStage(
     : candidates.filter((candidate) => candidate.stage === stage);
 }
 
-/**
- * 새 인터뷰 링크에 쓸 값을 만든다.
- * 이 값 하나로 면접에 들어갈 수 있으므로, 짧은 순번이 아니라 추측하기 어려운 값이어야 한다.
- * API 연결 단계에서 서버가 만들고 만료 기한을 붙인다.
- */
-export function createToken() {
-  return crypto.randomUUID().replaceAll("-", "").slice(0, 20);
-}
-
-/** 후보자 라벨은 지원 순서대로 A, B, C… 로 붙인다. 실명은 다루지 않는다. */
-export function nextLabel(candidates: Candidate[]) {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const index = candidates.length;
-  const letter = alphabet[index % alphabet.length];
-  const round = Math.floor(index / alphabet.length);
-  return `후보자 ${letter}${round > 0 ? round + 1 : ""}`;
-}
-
 export function interviewUrl(token: string, origin: string) {
   return `${origin}/interview/${token}`;
 }

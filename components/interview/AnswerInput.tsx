@@ -1,16 +1,23 @@
 "use client";
 
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import { btnPrimary } from "@/components/ui/styles";
 
 export default function AnswerInput({
   disabled,
   onSubmit,
+  restore,
 }: {
   disabled: boolean;
   onSubmit: (text: string) => void;
+  /** 전송에 실패한 답변. 입력칸에 되돌려 다시 보낼 수 있게 한다. */
+  restore?: string | null;
 }) {
   const [text, setText] = useState("");
+
+  useEffect(() => {
+    if (restore) setText(restore);
+  }, [restore]);
   const trimmed = text.trim();
   const canSubmit = !disabled && trimmed.length > 0;
 
@@ -33,6 +40,7 @@ export default function AnswerInput({
         <textarea
           rows={3}
           value={text}
+          maxLength={4000}
           disabled={disabled}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={handleKeyDown}

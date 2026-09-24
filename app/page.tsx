@@ -1,30 +1,11 @@
 import Link from "next/link";
 
 const steps = [
-  { label: "1. 평가 기준(rubric) 설정 화면", done: true, href: "/jobs/new" },
-  {
-    label: "2. 후보자 인터뷰 채팅 화면",
-    done: true,
-    href: "/interview/demo-token",
-  },
-  {
-    label: "3. 결과 리뷰 화면",
-    done: true,
-    href: "/interviews/demo-report",
-  },
-  {
-    label: "4. 화면 규칙 · 스타일 가이드",
-    done: true,
-    href: "/design",
-  },
-  { label: "5. 대시보드 · 후보자 관리", done: true, href: "/dashboard" },
-  {
-    label: "6. Claude 연결 ① 질문·평가 기준 초안 생성",
-    done: true,
-    href: "/jobs/new",
-  },
-  { label: "7. Claude 연결 ② 답변 채점 · 후속 질문", done: false },
-  { label: "8. 데이터베이스(Supabase) 저장 연결", done: false },
+  { label: "SC1 서버 저장 (Supabase)", done: true, href: "/dashboard" },
+  { label: "SC2 채점 AI", done: false },
+  { label: "SC3 후속 질문 AI", done: false },
+  { label: "SC4 TalentCore 로그인 · Hire 연결", done: false },
+  { label: "SC5 배포 · 한 바퀴", done: false },
 ];
 
 export default function Home() {

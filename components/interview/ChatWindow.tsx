@@ -1,51 +1,37 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import AnswerInput from "@/components/interview/AnswerInput";
 import CompleteScreen from "@/components/interview/CompleteScreen";
 import ConsentScreen from "@/components/interview/ConsentScreen";
 import MessageBubble from "@/components/interview/MessageBubble";
 import ProgressBar from "@/components/interview/ProgressBar";
-import {
-  appendAnswer,
-  applyDecision,
-  createMessage,
-  emptySession,
-  progressOf,
-  startSession,
-} from "@/lib/interview";
-import {
-  clearSession,
-  parseSession,
-  readSessionRaw,
-  subscribeSession,
-  writeSession,
-} from "@/lib/interview-store";
-import { askAi } from "@/lib/mock/interview";
-import type { ChatMessage, InterviewSetup } from "@/lib/types";
+import { answerAction, startInterviewAction, type CandidateReply } from "@/app/actions";
+import { createMessage, progressOf } from "@/lib/interview";
+import type { ChatMessage, InterviewSession, InterviewSetup } from "@/lib/types";
 
-export default function ChatWindow({ setup }: { setup: InterviewSetup }) {
-  // 진행 상태는 브라우저 저장소가 원본이다. 서버 렌더링 때는 null 이라 동의 화면부터 보인다.
-  const raw = useSyncExternalStore(
-    subscribeSession,
-    () => readSessionRaw(setup.token),
-    () => null
-  );
+const FAIL_TEXT: Record<Exclude<CandidateReply, { ok: true }>["reason"], string> = {
+  missing: "면접 링크를 찾을 수 없습니다. 받은 링크를 다시 확인해 주세요.",
+  expired: "면접 링크의 기한이 지났습니다. 채용 담당자에게 문의해 주세요.",
+  closed: "이미 제출을 마친 면접입니다.",
+  stale: "다른 창에서 진행한 내용이 있어 최신 상태로 다시 불러옵니다.",
+  error: "전송하지 못했습니다. 연결을 확인하고 다시 보내 주세요. 답변은 입력칸에 남겨 두었습니다.",
+};
 
-  const session = useMemo(
-    () => parseSession(raw) ?? emptySession(setup.token),
-    [raw, setup.token]
-  );
-
-  // 화면에는 바로 보여 주되, 저장은 AI 응답과 함께 한 번에 한다.
+export default function ChatWindow({
+  setup,
+  initialSession,
+}: {
+  setup: InterviewSetup;
+  initialSession: InterviewSession;
+}) {
+  // 진행 기록의 원본은 서버다. 창을 닫았다 다시 열거나 다른 기기에서 열어도 같은 곳에서 이어진다.
+  const [session, setSession] = useState(initialSession);
   const [pendingAnswer, setPendingAnswer] = useState<ChatMessage | null>(null);
+  const [starting, setStarting] = useState(false);
   const [startedHere, setStartedHere] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [draft, setDraft] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const thinking = pendingAnswer !== null;
@@ -57,36 +43,67 @@ export default function ChatWindow({ setup }: { setup: InterviewSetup }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [session.messages.length, thinking]);
 
-  function handleStart() {
-    setStartedHere(true);
-    writeSession(startSession(setup));
+  function fail(reply: Exclude<CandidateReply, { ok: true }>) {
+    setFailure(FAIL_TEXT[reply.reason]);
+    if (reply.reason === "stale" || reply.reason === "closed") {
+      setTimeout(() => window.location.reload(), 1200);
+    }
+  }
+
+  async function handleStart() {
+    if (starting) return;
+    setStarting(true);
+    setFailure(null);
+    try {
+      const reply = await startInterviewAction(setup.token);
+      if (reply.ok) {
+        setStartedHere(true);
+        setSession(reply.session);
+      } else fail(reply);
+    } catch {
+      setFailure(FAIL_TEXT.error);
+    } finally {
+      setStarting(false);
+    }
   }
 
   async function handleAnswer(text: string) {
+    setFailure(null);
+    setDraft(null);
     setPendingAnswer(
       createMessage({ role: "candidate", kind: "answer", text })
     );
     try {
-      const decision = await askAi(session, setup, text);
-      // 답변과 AI 응답을 한 번에 기록한다. 중간 상태로 남아 멈추는 일이 없도록.
-      writeSession(applyDecision(appendAnswer(session, setup, text), decision));
+      // 답변과 다음 질문은 서버가 한 번에 기록한다. 중간 상태로 남아 멈추는 일이 없도록.
+      const reply = await answerAction(setup.token, text, session.messages.length);
+      if (reply.ok) setSession(reply.session);
+      else {
+        if (reply.reason === "error") setDraft(text);
+        fail(reply);
+      }
+    } catch {
+      setDraft(text);
+      setFailure(FAIL_TEXT.error);
     } finally {
       setPendingAnswer(null);
     }
   }
 
   if (session.phase === "consent") {
-    return <ConsentScreen setup={setup} onStart={handleStart} />;
+    return (
+      <>
+        <ConsentScreen setup={setup} onStart={handleStart} />
+        {failure ? (
+          <p role="alert" className="mx-auto mb-10 w-full max-w-2xl px-5 text-sm text-rose-600">
+            {failure}
+          </p>
+        ) : null}
+      </>
+    );
   }
 
   if (session.phase === "done") {
-    return (
-      <CompleteScreen
-        setup={setup}
-        session={session}
-        onRestart={() => clearSession(setup.token)}
-      />
-    );
+    return <CompleteScreen setup={setup} session={session} />;
   }
 
   return (
@@ -139,7 +156,16 @@ export default function ChatWindow({ setup }: { setup: InterviewSetup }) {
         </div>
       </div>
 
-      <AnswerInput disabled={thinking} onSubmit={handleAnswer} />
+      {failure ? (
+        <p role="alert" className="shrink-0 border-t border-line bg-surface px-4 py-2 text-center text-sm text-rose-600">
+          {failure}
+        </p>
+      ) : null}
+      <AnswerInput
+        disabled={thinking}
+        onSubmit={handleAnswer}
+        restore={draft}
+      />
     </div>
   );
 }

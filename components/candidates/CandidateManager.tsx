@@ -14,11 +14,10 @@ import {
 import {
   STAGE_FILTERS,
   countStages,
-  createToken,
   filterByStage,
   interviewUrl,
-  nextLabel,
 } from "@/lib/candidates";
+import { issueLinkAction } from "@/app/actions";
 import type { Candidate, CandidateStage, JobSummary } from "@/lib/types";
 
 /** 단계 이름을 화면에 쓰는 말로 바꾼다. 색으로 구분하지 않고 글자로만 알려 준다. */
@@ -45,6 +44,7 @@ export default function CandidateManager({
   const [toast, setToast] = useState<string | null>(null);
   /** 복사가 막혔을 때 링크를 그대로 보여 줄 후보자 */
   const [revealed, setRevealed] = useState<string | null>(null);
+  const [issuing, setIssuing] = useState(false);
 
   const counts = useMemo(() => countStages(candidates), [candidates]);
   const origin = typeof window === "undefined" ? "" : window.location.origin;
@@ -55,17 +55,18 @@ export default function CandidateManager({
     setTimeout(() => setToast(null), 2600);
   }
 
-  function handleInvite() {
-    // API 연결 단계에서 서버가 토큰을 만들고 만료 기한을 붙인다. 지금은 화면 동작만 확인한다.
-    const candidate: Candidate = {
-      id: createToken().slice(0, 8),
-      label: nextLabel(candidates),
-      token: createToken(),
-      invitedAt: new Date().toISOString(),
-      stage: "링크발급",
-    };
-    setCandidates((prev) => [...prev, candidate]);
-    notify(`${candidate.label}의 면접 링크를 만들었습니다.`);
+  async function handleInvite() {
+    if (issuing) return;
+    setIssuing(true);
+    // 링크 값·라벨·만료 기한은 서버가 정한다.
+    const result = await issueLinkAction(job.id);
+    setIssuing(false);
+    if (!result.ok) {
+      notify("링크를 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.");
+      return;
+    }
+    setCandidates((prev) => [...prev, result.candidate]);
+    notify(`${result.candidate.label}의 면접 링크를 만들었습니다.`);
   }
 
   async function handleCopy(candidate: Candidate) {
@@ -85,8 +86,13 @@ export default function CandidateManager({
       <TopBar
         current="후보자 관리"
         right={
-          <button type="button" onClick={handleInvite} className={`${btnPrimary} px-3 py-1.5`}>
-            면접 링크 발급
+          <button
+            type="button"
+            onClick={handleInvite}
+            disabled={issuing}
+            className={`${btnPrimary} px-3 py-1.5`}
+          >
+            {issuing ? "만드는 중" : "면접 링크 발급"}
           </button>
         }
       />

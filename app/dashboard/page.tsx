@@ -2,11 +2,15 @@ import Link from "next/link";
 import TopBar from "@/components/ui/TopBar";
 import { btnPrimary, cardClass, labelClass, panelClass } from "@/components/ui/styles";
 import { countStages } from "@/lib/candidates";
-import { getCandidates, getJobSummaries } from "@/lib/mock/dashboard";
+import { StoreMissing } from "@/components/ui/Notice";
+import { isStoreConfigured } from "@/lib/db";
+import { listJobs } from "@/lib/store";
 
 export const metadata = {
   title: "대시보드 · AI 면접",
 };
+
+export const dynamic = "force-dynamic";
 
 /** "2026-08-19T09:41:00+09:00" → "8월 19일" */
 function shortDate(iso: string) {
@@ -18,24 +22,17 @@ function shortDate(iso: string) {
  * 담당자가 로그인하면 제일 먼저 보는 화면.
  * "지금 내가 뭘 해야 하는지"를 위에, 공고 목록을 아래에 둔다.
  */
-export default function DashboardPage() {
-  const jobs = getJobSummaries();
-  const rows = jobs.map((job) => ({
+export default async function DashboardPage() {
+  if (!isStoreConfigured()) return <StoreMissing />;
+
+  const rows = (await listJobs()).map(({ job, candidates }) => ({
     job,
-    counts: countStages(getCandidates(job.id)),
+    counts: countStages(candidates),
   }));
 
-  const openJobs = jobs.filter((job) => job.status === "진행중").length;
+  const openJobs = rows.filter(({ job }) => job.status === "진행중").length;
   const waiting = rows.reduce((sum, row) => sum + row.counts.검토대기, 0);
   const running = rows.reduce((sum, row) => sum + row.counts.진행중, 0);
-  const submitted = rows.reduce((sum, row) => sum + row.counts.제출완료, 0);
-
-  const tiles = [
-    { label: "검토 대기", value: waiting, hint: "지금 봐야 할 사람" },
-    { label: "진행 중 면접", value: running, hint: "답변을 쓰는 중" },
-    { label: "제출 완료", value: submitted, hint: "누적" },
-    { label: "진행 중 공고", value: openJobs, hint: `전체 ${jobs.length}개` },
-  ];
 
   return (
     <div className="min-h-dvh">
@@ -57,25 +54,11 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        <dl className={`${cardClass} grid grid-cols-2 divide-line sm:grid-cols-4 sm:divide-x`}>
-          {tiles.map((tile, index) => (
-            <div
-              key={tile.label}
-              className={`px-4 py-3.5 ${index < 2 ? "border-b border-line sm:border-b-0" : ""} ${
-                index % 2 === 0 ? "border-r border-line sm:border-r-0" : ""
-              }`}
-            >
-              <dt className={labelClass}>{tile.label}</dt>
-              <dd className="num mt-1.5 text-2xl text-ink">
-                {tile.value}
-                <span className="ml-1 text-xs text-ink-3">
-                  {tile.label === "진행 중 공고" ? "개" : "명"}
-                </span>
-              </dd>
-              <p className="mt-0.5 text-xs text-ink-3">{tile.hint}</p>
-            </div>
-          ))}
-        </dl>
+        <p className="text-[13px] text-ink-2">
+          검토 대기 <span className="num text-ink">{waiting}</span>명 &nbsp;·&nbsp; 진행 중 면접{" "}
+          <span className="num text-ink">{running}</span>명 &nbsp;·&nbsp; 진행 중 공고{" "}
+          <span className="num text-ink">{openJobs}</span>개
+        </p>
 
         <section className="mt-8">
           <div className="flex items-baseline justify-between">
@@ -83,7 +66,13 @@ export default function DashboardPage() {
             <p className="text-xs text-ink-3">최근 만든 순서</p>
           </div>
 
-          <ul className={`${cardClass} mt-3 divide-y divide-line`}>
+          {rows.length === 0 ? (
+            <p className={`${cardClass} mt-3 px-5 py-6 text-sm text-ink-2`}>
+              아직 만든 공고가 없습니다. [새 직무 만들기]로 질문과 평가 기준을 먼저 정하세요.
+            </p>
+          ) : null}
+
+          <ul className={`${cardClass} mt-3 divide-y divide-line empty:hidden`}>
             {rows.map(({ job, counts }) => (
               <li key={job.id}>
                 <Link

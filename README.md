@@ -32,7 +32,7 @@
 | 5 | 대시보드 · 후보자 관리 | ✅ 완료 (mock 데이터) |
 | 6 | Claude API 연결 ① 질문·평가 기준 초안 생성 | ✅ 완료 |
 | 7 | Claude API 연결 ② 답변 채점 · 후속 질문 | ⬜ 다음 |
-| 8 | Supabase 스키마 · 저장 연결 | ⬜ |
+| 8 | Supabase 스키마 · 저장 연결 (`lib/store.ts`, `supabase/screen-001-tables.sql`) | 🟨 코드 완료 · 표 적용 대기 |
 
 **화면을 먼저 만들고 AI 연결을 나중에 붙이고 있습니다.** 무엇을 보여 줄지가 정해져야 AI 에게 무엇을 시킬지도 정해지기 때문입니다. 6단계에서 첫 번째 AI 기능(질문 초안 생성)이 실제로 동작하게 됐고, 채점과 후속 질문은 아직 정해진 규칙대로만 움직입니다. 저장은 여전히 브라우저에만 됩니다.
 
@@ -225,6 +225,6 @@ lib/
 
 ## 기술 스택
 
-Next.js (App Router) · TypeScript · Tailwind CSS · Claude API(질문 초안 생성에 연결됨) · Supabase(예정)
+Next.js (App Router) · TypeScript · Tailwind CSS · Claude API(질문 초안 생성에 연결됨) · Supabase(서버에서만 service_role 로 접근)
 
 외부 UI 라이브러리는 쓰지 않고, 데이터는 ORM 없이 Supabase 를 직접 조회할 예정입니다.

@@ -19,28 +19,38 @@ import {
   answerCountOf,
   clockOf,
   dateOf,
-  emptyReview,
   levelMeta,
   levelOf,
   messagesFor,
   reportTotals,
 } from "@/lib/review";
 import { weightPercents } from "@/lib/rubric";
+import { saveReviewAction } from "@/app/actions";
 import type {
   CandidateRow,
   InterviewReport,
   RecruiterReview,
+  ReviewStatus,
 } from "@/lib/types";
 
 export default function ReportView({
   report,
   candidates,
+  initialReview,
+  initialStatus,
 }: {
   report: InterviewReport;
   candidates: CandidateRow[];
+  initialReview: RecruiterReview;
+  initialStatus: ReviewStatus;
 }) {
-  const [review, setReview] = useState<RecruiterReview>(emptyReview);
+  const [review, setReview] = useState<RecruiterReview>(initialReview);
+  const [status, setStatus] = useState<ReviewStatus>(initialStatus);
+  const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  /** 채점 AI(SC2) 전에는 점수가 없다. 그때는 점수 칸 대신 대화 전문만 보여 준다. */
+  const scored = report.scores.length > 0;
 
   const percents = useMemo(
     () => weightPercents(report.questions),
@@ -68,11 +78,22 @@ export default function ReportView({
     }));
   }
 
-  function handleSave() {
-    // API 연결 단계에서 Supabase 저장으로 교체한다. 지금은 화면 동작만 확인한다.
-    console.log("검토 결과", { reportId: report.id, review });
-    setToast("검토 내용을 저장했습니다. (지금은 화면 확인용입니다)");
+  function notify(message: string) {
+    setToast(message);
     setTimeout(() => setToast(null), 2600);
+  }
+
+  async function handleSave(next: ReviewStatus) {
+    if (saving) return;
+    setSaving(true);
+    const result = await saveReviewAction(report.id, review, next);
+    setSaving(false);
+    if (!result.ok) {
+      notify("저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.");
+      return;
+    }
+    setStatus(next);
+    notify(next === "검토완료" ? "검토를 끝냈습니다." : "검토 내용을 저장했습니다.");
   }
 
   return (
@@ -113,6 +134,8 @@ export default function ReportView({
 
           {/* 가운데 — 채점 내용 */}
           <div className="flex flex-col gap-4">
+            {scored ? (
+              <>
             <section className={`${cardClass} p-5`}>
               <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
                 <div>
@@ -166,6 +189,16 @@ export default function ReportView({
               고치고, 그 이유를 메모로 남겨 주세요.
             </p>
 
+              </>
+            ) : (
+              <section className={`${cardClass} p-5`}>
+                <p className={labelClass}>채점 대기</p>
+                <p className="mt-2 text-[15px] leading-relaxed text-ink">
+                  아직 채점하지 않은 면접입니다. 아래 대화 전문을 읽고 메모를 남길 수 있습니다.
+                </p>
+              </section>
+            )}
+
             {report.questions.map((question, index) => {
               const score = report.scores.find(
                 (item) => item.questionId === question.id
@@ -199,11 +232,19 @@ export default function ReportView({
               <dl className="mt-3 flex flex-col gap-2.5 text-[13px]">
                 <div className="flex items-baseline justify-between">
                   <dt className="text-ink-2">AI 채점</dt>
-                  <dd className="num text-base text-ink-3">{totals.ai}</dd>
+                  <dd className="num text-base text-ink-3">
+                    {scored ? totals.ai : "대기"}
+                  </dd>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <dt className="text-ink-2">담당자 확인</dt>
-                  <dd className="num text-base text-ink">{totals.final}</dd>
+                  <dd className="num text-base text-ink">
+                    {scored ? totals.final : "-"}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <dt className="text-ink-2">검토 상태</dt>
+                  <dd className="text-ink">{status}</dd>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <dt className="text-ink-2">고친 문항</dt>
@@ -238,16 +279,24 @@ export default function ReportView({
 
               <button
                 type="button"
-                onClick={handleSave}
+                onClick={() => handleSave(status === "검토완료" ? "검토완료" : "검토중")}
+                disabled={saving}
                 className={`${btnPrimary} mt-3 w-full`}
               >
                 검토 내용 저장
               </button>
-              <button type="button" className={`${btnSecondary} mt-2 w-full`}>
-                대면 면접 대상으로 표시
-              </button>
+              {status !== "검토완료" ? (
+                <button
+                  type="button"
+                  onClick={() => handleSave("검토완료")}
+                  disabled={saving}
+                  className={`${btnSecondary} mt-2 w-full`}
+                >
+                  검토 끝내기
+                </button>
+              ) : null}
               <p className="mt-2.5 text-[11.5px] leading-relaxed text-ink-3">
-                표시는 기록일 뿐 합격을 뜻하지 않습니다.
+                합격·불합격은 Hire 에서 정합니다. 여기서는 기록만 남깁니다.
               </p>
             </section>
 
