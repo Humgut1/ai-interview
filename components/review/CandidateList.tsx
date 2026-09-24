@@ -44,7 +44,7 @@ export default function CandidateList({
                 >
                   {row.candidateLabel}
                 </span>
-                <span className="num shrink-0 text-sm text-ink-2">{shown}</span>
+                <span className="num shrink-0 text-sm text-ink-2">{shown ?? "대기"}</span>
               </div>
               <p className={`mt-0.5 text-[11px] ${STATUS_STYLE[row.status]}`}>
                 {row.status} · {shortDate(row.completedAt)}

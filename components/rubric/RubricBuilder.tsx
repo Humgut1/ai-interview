@@ -231,7 +231,7 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
               setDraftDismissed(true);
               setToast({ tone: "ok", text: "임시저장한 내용을 불러왔습니다." });
             }}
-            className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
+            className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-surface hover:bg-accent-hover"
           >
             이어서 작성
           </button>
@@ -336,7 +336,7 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
         </div>
 
         {showErrors && validation.questions ? (
-          <p role="alert" className="mt-3 text-sm text-rose-600">
+          <p role="alert" className="mt-3 text-sm text-rose-600 dark:text-rose-400">
             {validation.questions}
           </p>
         ) : null}
@@ -394,7 +394,7 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
             총 <strong className="text-ink">{job.questions.length}</strong>
             문항 · 예상 <strong className="text-ink">{minutes}</strong>분
             {validation.isValid ? null : (
-              <span className="ml-2 text-rose-600">
+              <span className="ml-2 text-rose-600 dark:text-rose-400">
                 미입력 {validation.errorCount}곳
               </span>
             )}
@@ -411,7 +411,7 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
+              className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-surface hover:bg-accent-hover"
             >
               {saving ? "저장 중" : "저장"}
             </button>
@@ -425,7 +425,7 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
           className={[
             "fixed bottom-20 left-1/2 z-10 -translate-x-1/2 rounded-md px-4 py-2.5 text-sm shadow-lg",
             toast.tone === "ok"
-              ? "bg-ink text-white"
+              ? "bg-ink text-surface"
               : "bg-rose-600 text-white",
           ].join(" ")}
         >

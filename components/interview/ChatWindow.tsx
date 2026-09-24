@@ -33,6 +33,8 @@ export default function ChatWindow({
   const [failure, setFailure] = useState<string | null>(null);
   const [draft, setDraft] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // 두 번 눌러도 한 번만 보낸다. state 는 다음 그리기 전까지 안 바뀌므로 ref 로 막는다.
+  const sending = useRef(false);
 
   const thinking = pendingAnswer !== null;
   const progress = progressOf(session, setup);
@@ -68,6 +70,8 @@ export default function ChatWindow({
   }
 
   async function handleAnswer(text: string) {
+    if (sending.current) return;
+    sending.current = true;
     setFailure(null);
     setDraft(null);
     setPendingAnswer(
@@ -85,6 +89,7 @@ export default function ChatWindow({
       setDraft(text);
       setFailure(FAIL_TEXT.error);
     } finally {
+      sending.current = false;
       setPendingAnswer(null);
     }
   }
@@ -94,7 +99,7 @@ export default function ChatWindow({
       <>
         <ConsentScreen setup={setup} onStart={handleStart} />
         {failure ? (
-          <p role="alert" className="mx-auto mb-10 w-full max-w-2xl px-5 text-sm text-rose-600">
+          <p role="alert" className="mx-auto mb-10 w-full max-w-2xl px-5 text-sm text-rose-600 dark:text-rose-400">
             {failure}
           </p>
         ) : null}
@@ -157,7 +162,7 @@ export default function ChatWindow({
       </div>
 
       {failure ? (
-        <p role="alert" className="shrink-0 border-t border-line bg-surface px-4 py-2 text-center text-sm text-rose-600">
+        <p role="alert" className="shrink-0 border-t border-line bg-surface px-4 py-2 text-center text-sm text-rose-600 dark:text-rose-400">
           {failure}
         </p>
       ) : null}

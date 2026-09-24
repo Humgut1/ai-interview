@@ -19,7 +19,7 @@ export default function Home() {
 
       <Link
         href="/dashboard"
-        className="mt-8 inline-flex rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover"
+        className="mt-8 inline-flex rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-surface hover:bg-accent-hover"
       >
         대시보드 열기
       </Link>

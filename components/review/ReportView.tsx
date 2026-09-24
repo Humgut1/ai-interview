@@ -129,7 +129,12 @@ export default function ReportView({
           <aside
             className={`${cardClass} p-3 lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto`}
           >
-            <CandidateList rows={candidates} currentReportId={report.id} />
+            <CandidateList
+              rows={candidates.map((row) =>
+                row.reportId === report.id ? { ...row, status } : row
+              )}
+              currentReportId={report.id}
+            />
           </aside>
 
           {/* 가운데 — 채점 내용 */}
@@ -327,7 +332,7 @@ export default function ReportView({
       {toast ? (
         <p
           role="status"
-          className="fixed bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-md bg-ink px-4 py-2.5 text-sm text-white shadow-lg"
+          className="fixed bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-md bg-ink px-4 py-2.5 text-sm text-surface shadow-lg"
         >
           {toast}
         </p>

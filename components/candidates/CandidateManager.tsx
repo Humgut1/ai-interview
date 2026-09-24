@@ -174,7 +174,10 @@ export default function CandidateManager({
               </div>
 
               <div className="w-16 text-right">
-                {candidate.stage === "제출완료" ? (
+                {candidate.stage === "제출완료" &&
+                (candidate.finalScore ?? candidate.aiScore) == null ? (
+                  <p className="text-xs text-ink-3">채점 대기</p>
+                ) : candidate.stage === "제출완료" ? (
                   <>
                     <p className={labelClass}>점수</p>
                     <p className="num mt-0.5 text-lg text-ink">
@@ -227,7 +230,7 @@ export default function CandidateManager({
       {toast ? (
         <div
           role="status"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-md bg-ink px-4 py-2.5 text-sm text-white shadow-lg"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-md bg-ink px-4 py-2.5 text-sm text-surface shadow-lg"
         >
           {toast}
         </div>

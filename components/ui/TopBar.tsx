@@ -25,7 +25,7 @@ export default function TopBar({
             aria-hidden
             className="flex h-6 w-6 items-center justify-center rounded-md bg-ink"
           >
-            <span className="block h-0.5 w-3 bg-white" />
+            <span className="block h-0.5 w-3 bg-surface" />
           </span>
           <span className="text-sm font-semibold text-ink">AI 면접 도구</span>
         </Link>

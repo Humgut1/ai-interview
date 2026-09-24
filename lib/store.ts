@@ -473,7 +473,7 @@ export async function getReport(id: string): Promise<ReportBundle | null> {
       reportId: c.id,
       candidateLabel: c.label,
       completedAt: c.completedAt ?? "",
-      aiScore: c.aiScore ?? 0,
+      ...(c.aiScore === undefined ? {} : { aiScore: c.aiScore }),
       status: c.reviewStatus ?? "미검토",
       ...(c.finalScore === undefined ? {} : { finalScore: c.finalScore }),
     })),

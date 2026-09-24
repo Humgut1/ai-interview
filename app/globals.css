@@ -3,7 +3,7 @@
 /*
  * 화면 전체가 쓰는 색·모양 규칙을 여기 한 곳에 모아 둔다.
  * 뼈대(간격·밀도)는 촘촘한 쪽, 색은 따뜻한 회백색 + 청록 쪽을 골랐다.
- * 관리자용 도구라 밝은 테마 하나로 고정한다.
+ * 어두운 화면 설정이면 아래 @media 에서 같은 이름의 색을 어두운 값으로 바꾼다.
  */
 @theme {
   /* 바탕과 면 */
@@ -28,6 +28,31 @@
 
   /* 점수 막대. 일부러 등급별로 색을 바꾸지 않는다 (신호등 금지) */
   --color-bar: #3b4744;
+}
+
+/* 어두운 화면 — 이름은 그대로 두고 값만 바꾼다. 화면 코드는 손대지 않아도 따라온다. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-canvas: #121615;
+    --color-surface: #1a1f1e;
+    --color-sand: #201f1c;
+    --color-mute: #262c2a;
+    --color-line: #2c3331;
+    --color-line-strong: #3a4240;
+    --color-ink: #e6ebe9;
+    --color-ink-2: #a9b2ae;
+    --color-ink-3: #7f8985;
+    --color-accent: #3fb2a6;
+    --color-accent-hover: #5cc4b8;
+    --color-accent-soft: #173330;
+    --color-bar: #b3beba;
+  }
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
 }
 
 @theme inline {

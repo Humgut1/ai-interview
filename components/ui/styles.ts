@@ -13,7 +13,7 @@ const btnBase =
   "inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed";
 
 /** 그 화면에서 제일 중요한 동작 하나에만 쓴다. */
-export const btnPrimary = `${btnBase} bg-accent text-white hover:bg-accent-hover disabled:bg-mute disabled:text-ink-3`;
+export const btnPrimary = `${btnBase} bg-accent text-surface hover:bg-accent-hover disabled:bg-mute disabled:text-ink-3`;
 
 /** 그 다음 동작들. 흰 바탕에 선만. */
 export const btnSecondary = `${btnBase} border border-line-strong bg-surface text-ink hover:bg-canvas disabled:text-ink-3`;

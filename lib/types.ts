@@ -155,7 +155,8 @@ export type CandidateRow = {
   reportId: string;
   candidateLabel: string;
   completedAt: string;
-  aiScore: number;
+  /** 아직 채점 전이면 없음 */
+  aiScore?: number;
   /** 담당자가 검토를 마쳤으면 최종 점수 */
   finalScore?: number;
   status: "미검토" | "검토중" | "검토완료";

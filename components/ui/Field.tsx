@@ -6,7 +6,7 @@ export const inputClass =
 export const textareaClass = `${inputClass} resize-y leading-relaxed`;
 
 export const errorInputClass =
-  "border-rose-400 focus:border-rose-500 focus:ring-rose-100";
+  "border-rose-400 focus:border-rose-500 focus:ring-rose-100 dark:focus:ring-rose-900";
 
 type FieldProps = {
   label: string;
@@ -39,7 +39,7 @@ export function Field({
       </label>
       {children}
       {error ? (
-        <p role="alert" className="text-xs text-rose-600">
+        <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">
           {error}
         </p>
       ) : null}

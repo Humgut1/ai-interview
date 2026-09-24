@@ -113,7 +113,7 @@ export default function QuestionEditor({
           <button
             type="button"
             onClick={onRemove}
-            className="rounded-md px-2 py-1 text-sm text-ink-3 hover:bg-rose-50 hover:text-rose-600"
+            className="rounded-md px-2 py-1 text-sm text-ink-3 hover:bg-rose-50 dark:hover:bg-rose-950 hover:text-rose-600 dark:text-rose-400"
           >
             삭제
           </button>
@@ -179,7 +179,7 @@ export default function QuestionEditor({
           ))}
 
           {visibleErrors?.criteria ? (
-            <p role="alert" className="text-xs text-rose-600">
+            <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">
               {visibleErrors.criteria}
             </p>
           ) : null}
