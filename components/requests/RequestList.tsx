@@ -35,7 +35,7 @@ export default function RequestList({ initial }: { initial: RequestRow[] }) {
         return;
       }
       setConfirm(null);
-      const now = new Date().toISOString();
+      const now = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 19) + "+09:00";
       setRows((list) =>
         list.map((r) => {
           const same = r.interviewId === row.interviewId;
