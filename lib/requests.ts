@@ -3,7 +3,7 @@
  */
 
 /** 동의 화면 안내문의 판. 문구를 바꾸면 날짜를 올린다 — 누가 어느 판에 동의했는지 남기려고. */
-export const CONSENT_VERSION = "2026-09-26";
+export const CONSENT_VERSION = "2026-09-26b";
 export const RETENTION_DEFAULT = 180;
 export const RETENTION_MIN = 30;
 export const RETENTION_MAX = 1095;

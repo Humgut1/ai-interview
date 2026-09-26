@@ -2,7 +2,10 @@
 
 import {
   answerInterview,
+  beginTake,
   candidateRequest,
+  prepareUpload,
+  submitVideoAnswer,
   createJob,
   handleRequest,
   issueInterview,
@@ -130,6 +133,59 @@ export async function answerAction(
   }
   try {
     return await answerInterview(token, text, seen);
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}
+
+type Fail = { ok: false; reason: "missing" | "expired" | "stale" | "closed" | "type" | "error" };
+
+/** 영상 면접: 녹화 시작. 몇 번째 녹화인지 돌려준다. */
+export async function beginTakeAction(
+  token: string,
+  seen: number
+): Promise<{ ok: true; take: number } | Fail> {
+  if (typeof token !== "string" || typeof seen !== "number") return { ok: false, reason: "error" };
+  try {
+    return await beginTake(token, seen);
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}
+
+/** 영상 면접: 녹화 파일을 올릴 한 번짜리 주소. */
+export async function prepareUploadAction(
+  token: string,
+  seen: number,
+  contentType: string
+): Promise<{ ok: true; url: string; path: string } | Fail> {
+  if (typeof token !== "string" || typeof seen !== "number" || typeof contentType !== "string") {
+    return { ok: false, reason: "error" };
+  }
+  try {
+    return await prepareUpload(token, seen, contentType);
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}
+
+/** 영상 면접: 올린 녹화를 답변으로 보낸다. */
+export async function submitVideoAction(
+  token: string,
+  seen: number,
+  path: string,
+  seconds: number
+): Promise<CandidateReply> {
+  if (
+    typeof token !== "string" ||
+    typeof seen !== "number" ||
+    typeof path !== "string" ||
+    typeof seconds !== "number"
+  ) {
+    return { ok: false, reason: "error" };
+  }
+  try {
+    return await submitVideoAnswer(token, seen, path, seconds);
   } catch {
     return { ok: false, reason: "error" };
   }

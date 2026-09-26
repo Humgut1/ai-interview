@@ -1,5 +1,5 @@
 import { createQuestion } from "@/lib/rubric";
-import type { Job, Question } from "@/lib/types";
+import { VIDEO_DEFAULTS, type Job, type Question } from "@/lib/types";
 
 /**
  * 화면 확인용 가짜(mock) 데이터.
@@ -47,6 +47,8 @@ export const sampleJob: Job = {
       },
     }),
   ],
+  mode: "video",
+  video: { ...VIDEO_DEFAULTS },
 };
 
 /**

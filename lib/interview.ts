@@ -1,8 +1,9 @@
 import { newId } from "@/lib/rubric";
-import type {
-  ChatMessage,
-  InterviewSession,
-  InterviewSetup,
+import {
+  SHORT_VIDEO_SEC,
+  type ChatMessage,
+  type InterviewSession,
+  type InterviewSetup,
 } from "@/lib/types";
 
 export function createMessage(
@@ -19,6 +20,7 @@ export function emptySession(token: string): InterviewSession {
     messages: [],
     questionIndex: 0,
     followUpCount: 0,
+    takeCount: 0,
   };
 }
 
@@ -30,12 +32,16 @@ export function startSession(setup: InterviewSetup): InterviewSession {
     phase: "chat",
     questionIndex: 0,
     followUpCount: 0,
+    takeCount: 0,
     startedAt: new Date().toISOString(),
     messages: [
       createMessage({
         role: "ai",
         kind: "intro",
-        text: `안녕하세요. ${setup.jobTitle} 직무 1차 면접을 진행할 AI 면접관입니다. 편하게 답변해 주세요. 정답을 맞히는 자리가 아니라, 경험을 구체적으로 듣는 자리입니다.`,
+        text:
+          setup.mode === "video"
+            ? `안녕하세요. ${setup.jobTitle} 직무 1차 영상 면접입니다. 질문마다 준비 시간 뒤에 답변을 녹화합니다. 정답을 맞히는 자리가 아니라, 경험을 구체적으로 듣는 자리입니다.`
+            : `안녕하세요. ${setup.jobTitle} 직무 1차 면접을 진행할 AI 면접관입니다. 편하게 답변해 주세요. 정답을 맞히는 자리가 아니라, 경험을 구체적으로 듣는 자리입니다.`,
       }),
       createMessage({
         role: "ai",
@@ -59,15 +65,24 @@ const FOLLOW_UP_PROMPTS = [
   "마지막으로 하나만 더 여쭤볼게요. 다시 같은 상황이 온다면 어떤 점을 다르게 하시겠어요?",
 ];
 
-/** 답변이 짧고 사례가 없으면 후속 질문을 던진다. 실제 판단은 API 연결 단계에서 Claude 가 한다. */
+/**
+ * 답변이 짧고 사례가 없으면 후속 질문을 던진다. 실제 판단은 API 연결 단계에서 Claude 가 한다.
+ * 글: 120자 미만이면 짧음. 영상: 녹화 길이로 판단하고 되묻는 질문은 최대 1개.
+ */
 export function decideNextStep(
   session: InterviewSession,
   setup: InterviewSetup,
-  answer: string
+  answer: string | { seconds: number }
 ): AiDecision {
   const current = setup.questions[session.questionIndex];
-  const thin = answer.trim().length < 120;
-  const canFollowUp = session.followUpCount < (current?.maxFollowUps ?? 0);
+  const video = typeof answer !== "string";
+  const thin = video
+    ? answer.seconds < SHORT_VIDEO_SEC
+    : answer.trim().length < 120;
+  const limit = video
+    ? Math.min(current?.maxFollowUps ?? 0, 1)
+    : current?.maxFollowUps ?? 0;
+  const canFollowUp = session.followUpCount < limit;
 
   if (current && thin && canFollowUp) {
     return {
@@ -92,11 +107,12 @@ export function decideNextStep(
   };
 }
 
-/** 후보자 답변을 기록한다. 제출한 답변은 수정하지 않는다. */
+/** 후보자 답변을 기록한다. 제출한 답변은 수정하지 않는다. 영상이면 text 는 비워 두고 media 를 단다. */
 export function appendAnswer(
   session: InterviewSession,
   setup: InterviewSetup,
-  text: string
+  text: string,
+  media?: ChatMessage["media"]
 ): InterviewSession {
   const current = setup.questions[session.questionIndex];
   return {
@@ -108,6 +124,7 @@ export function appendAnswer(
         kind: "answer",
         questionId: current?.id,
         text: text.trim(),
+        ...(media ? { media, stt: "pending" as const } : {}),
       }),
     ],
   };
@@ -121,6 +138,7 @@ export function applyDecision(
     return {
       ...session,
       followUpCount: session.followUpCount + 1,
+      takeCount: 0,
       messages: [
         ...session.messages,
         createMessage({
@@ -138,6 +156,7 @@ export function applyDecision(
       ...session,
       questionIndex: session.questionIndex + 1,
       followUpCount: 0,
+      takeCount: 0,
       messages: [
         ...session.messages,
         createMessage({

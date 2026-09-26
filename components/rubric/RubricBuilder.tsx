@@ -20,7 +20,26 @@ import {
   validateJob,
   weightPercents,
 } from "@/lib/rubric";
-import type { CriteriaLevel, Job, Question } from "@/lib/types";
+import {
+  ANSWER_SEC_CHOICES,
+  PREP_SEC_CHOICES,
+  RETAKE_CHOICES,
+  cleanVideoRules,
+  type CriteriaLevel,
+  type InterviewMode,
+  type Job,
+  type Question,
+  type VideoRules,
+} from "@/lib/types";
+
+const MODE_CHOICES: { value: InterviewMode; label: string; hint: string }[] = [
+  { value: "video", label: "영상", hint: "질문마다 캠으로 답변 녹화 · 말한 내용만 평가" },
+  { value: "text", label: "글", hint: "채팅으로 답변 작성" },
+];
+
+function secLabel(sec: number) {
+  return sec % 60 === 0 ? `${sec / 60}분` : sec > 60 ? `${Math.floor(sec / 60)}분 ${sec % 60}초` : `${sec}초`;
+}
 
 const DRAFT_KEY = "ai-interview:job-draft";
 
@@ -70,7 +89,7 @@ export default function RubricBuilder({
   const [overIndex, setOverIndex] = useState<number | null>(null);
 
   const validation = useMemo(() => validateJob(job), [job]);
-  const minutes = estimateMinutes(job.questions);
+  const minutes = estimateMinutes(job.questions, job.mode, job.video);
   const percents = useMemo(() => weightPercents(job.questions), [job.questions]);
 
   useEffect(() => {
@@ -91,11 +110,21 @@ export default function RubricBuilder({
     if (!draftRaw || draftDismissed) return null;
     try {
       const parsed = JSON.parse(draftRaw) as Job;
-      return parsed?.questions && hasContent(parsed) ? parsed : null;
+      if (!parsed?.questions || !hasContent(parsed)) return null;
+      // 영상 면접 전에 임시저장한 초안에는 면접 방식이 없다
+      return {
+        ...parsed,
+        mode: parsed.mode === "text" ? "text" : "video",
+        video: cleanVideoRules(parsed.video),
+      } as Job;
     } catch {
       return null;
     }
   }, [draftRaw, draftDismissed]);
+
+  function patchVideo(patch: Partial<VideoRules>) {
+    setJob((prev) => ({ ...prev, video: { ...prev.video, ...patch } }));
+  }
 
   function patchQuestion(id: string, patch: Partial<Question>) {
     setJob((prev) => ({
@@ -316,7 +345,7 @@ export default function RubricBuilder({
             <button
               type="button"
               onClick={() => {
-                setJob({ ...sampleJob, id: job.id });
+                setJob({ ...sampleJob, id: job.id, mode: job.mode, video: job.video });
                 setToast({ tone: "ok", text: "예시 내용을 채웠습니다." });
               }}
               className="text-xs font-medium text-ink-3 underline underline-offset-2 hover:text-ink-2"
@@ -330,6 +359,83 @@ export default function RubricBuilder({
             </p>
           </div>
         </div>
+      </section>
+
+      <section className="mt-8 rounded-md border border-line bg-surface p-5 shadow-sm">
+        <h2 className="text-base font-semibold text-ink">면접 방식</h2>
+        <div
+          role="radiogroup"
+          aria-label="면접 방식"
+          className="mt-4 grid gap-2 sm:grid-cols-2"
+        >
+          {MODE_CHOICES.map((choice) => {
+            const on = job.mode === choice.value;
+            return (
+              <button
+                key={choice.value}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => setJob((prev) => ({ ...prev, mode: choice.value }))}
+                className={`rounded-md border px-4 py-3 text-left ${
+                  on
+                    ? "border-ink bg-mute text-ink"
+                    : "border-line text-ink-2 hover:bg-canvas"
+                }`}
+              >
+                <span className="block text-sm font-semibold">{choice.label}</span>
+                <span className="mt-0.5 block text-xs text-ink-3">{choice.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {job.mode === "video" ? (
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+            <Field label="답변 시간" htmlFor="video-answer">
+              <select
+                id="video-answer"
+                value={job.video.answerSec}
+                onChange={(event) => patchVideo({ answerSec: Number(event.target.value) })}
+                className={inputClass}
+              >
+                {ANSWER_SEC_CHOICES.map((sec) => (
+                  <option key={sec} value={sec}>
+                    최대 {secLabel(sec)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="준비 시간" htmlFor="video-prep">
+              <select
+                id="video-prep"
+                value={job.video.prepSec}
+                onChange={(event) => patchVideo({ prepSec: Number(event.target.value) })}
+                className={inputClass}
+              >
+                {PREP_SEC_CHOICES.map((sec) => (
+                  <option key={sec} value={sec}>
+                    {secLabel(sec)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="다시 찍기" htmlFor="video-retakes">
+              <select
+                id="video-retakes"
+                value={job.video.retakes}
+                onChange={(event) => patchVideo({ retakes: Number(event.target.value) })}
+                className={inputClass}
+              >
+                {RETAKE_CHOICES.map((n) => (
+                  <option key={n} value={n}>
+                    {n === 0 ? "허용 안 함" : `질문마다 ${n}번`}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        ) : null}
       </section>
 
       <section className="mt-8">

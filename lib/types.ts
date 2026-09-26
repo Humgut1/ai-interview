@@ -21,7 +21,40 @@ export type Job = {
   description: string;
   /** 배열 순서가 곧 질문 순서다. 별도 order 필드를 두지 않는다. */
   questions: Question[];
+  mode: InterviewMode;
+  video: VideoRules;
 };
+
+/** 면접 방식. 영상 = 질문마다 캠으로 답을 녹화(V1 기본), 글 = 채팅으로 답을 씀. */
+export type InterviewMode = "video" | "text";
+
+/** 영상 면접 규칙 (공고마다). */
+export type VideoRules = {
+  /** 답변 녹화 최대 시간(초) */
+  answerSec: number;
+  /** 질문을 보고 녹화가 시작되기까지 준비 시간(초) */
+  prepSec: number;
+  /** 다시 찍기 허용 횟수 (0~1) */
+  retakes: number;
+};
+
+export const VIDEO_DEFAULTS: VideoRules = { answerSec: 120, prepSec: 30, retakes: 1 };
+export const ANSWER_SEC_CHOICES = [60, 90, 120, 180];
+export const PREP_SEC_CHOICES = [15, 30, 60];
+export const RETAKE_CHOICES = [0, 1];
+/** 이보다 짧은 영상 답변이면 되묻는 질문 하나 (AI 는 SC3) */
+export const SHORT_VIDEO_SEC = 20;
+
+/** 공고에서 읽은 영상 규칙을 허용 범위로 맞춘다. */
+export function cleanVideoRules(value: Partial<VideoRules> | null | undefined): VideoRules {
+  const pick = (n: unknown, choices: number[], fallback: number) =>
+    choices.includes(Number(n)) ? Number(n) : fallback;
+  return {
+    answerSec: pick(value?.answerSec, ANSWER_SEC_CHOICES, VIDEO_DEFAULTS.answerSec),
+    prepSec: pick(value?.prepSec, PREP_SEC_CHOICES, VIDEO_DEFAULTS.prepSec),
+    retakes: pick(value?.retakes, RETAKE_CHOICES, VIDEO_DEFAULTS.retakes),
+  };
+}
 
 /**
  * 등급 표시. 초록/노랑/빨강(신호등)을 일부러 쓰지 않는다.
@@ -75,6 +108,8 @@ export type InterviewSetup = {
   jobTitle: string;
   estimatedMinutes: number;
   questions: CandidateQuestion[];
+  mode: InterviewMode;
+  video: VideoRules;
 };
 
 export type ChatRole = "ai" | "candidate";
@@ -87,6 +122,15 @@ export type ChatMessage = {
   questionId?: string;
   kind: "intro" | "question" | "followUp" | "answer" | "closing";
   at: string;
+  /** 영상 답변이면 녹화 파일 정보. text 는 받아 적기(SC7) 전까지 비어 있다. */
+  media?: {
+    path: string;
+    seconds: number;
+    /** 이 질문에서 몇 번째 녹화였는지 (1부터) */
+    take: number;
+  };
+  /** 받아 적기 상태 — 영상 답변에만 */
+  stt?: "pending" | "done" | "failed";
 };
 
 export type InterviewPhase = "consent" | "chat" | "done";
@@ -99,6 +143,8 @@ export type InterviewSession = {
   questionIndex: number;
   /** 현재 질문에서 이미 던진 후속 질문 수 */
   followUpCount: number;
+  /** 영상 면접: 지금 질문(또는 되묻는 질문)에서 녹화를 시작한 횟수 */
+  takeCount: number;
   startedAt?: string;
   completedAt?: string;
 };

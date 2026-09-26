@@ -23,6 +23,7 @@ import type {
   RecruiterReview,
   ReviewStatus,
 } from "@/lib/types";
+import { cleanVideoRules } from "@/lib/types";
 
 /**
  * Screen 의 저장·조회는 전부 여기서 한다(서버 전용).
@@ -33,6 +34,8 @@ import type {
 export const INTERVIEW_TTL_DAYS = 14;
 /** 답변 한 번의 최대 글자 수. 이보다 길면 잘라서 저장한다. */
 export const MAX_ANSWER_CHARS = 4000;
+/** 영상 답변을 담는 비공개 저장 칸(버킷). 폴더 = 면접 id. */
+export const VIDEO_BUCKET = "screen-videos";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -67,6 +70,9 @@ function toJob(row: any): Job {
     title: row.title,
     description: row.description ?? "",
     questions: (row.questions ?? []) as Question[],
+    // 영상 면접 칸이 생기기 전의 공고는 글 면접
+    mode: row.mode === "video" ? "video" : "text",
+    video: cleanVideoRules(row.video),
   };
 }
 
@@ -81,6 +87,8 @@ export async function createJob(
     title: job.title.trim(),
     description: job.description.trim(),
     questions: job.questions,
+    mode: job.mode === "video" ? "video" : "text",
+    video: cleanVideoRules(job.video),
     created_by: createdBy ?? null,
     hire_position_id: hirePositionId ?? null,
   });
@@ -241,6 +249,16 @@ function toMessage(row: any): ChatMessage {
     text: row.text,
     at: toKst(row.at),
     ...(row.question_id ? { questionId: row.question_id } : {}),
+    ...(row.media_path
+      ? {
+          media: {
+            path: row.media_path,
+            seconds: row.media_sec ?? 0,
+            take: row.media_take ?? 1,
+          },
+        }
+      : {}),
+    ...(row.stt_status ? { stt: row.stt_status } : {}),
   };
 }
 
@@ -249,12 +267,14 @@ function setupOf(token: string, job: Job): InterviewSetup {
   return {
     token,
     jobTitle: job.title,
-    estimatedMinutes: estimateMinutes(job.questions),
+    estimatedMinutes: estimateMinutes(job.questions, job.mode, job.video),
     questions: job.questions.map((q) => ({
       id: q.id,
       text: q.text,
       maxFollowUps: q.maxFollowUps,
     })),
+    mode: job.mode,
+    video: job.video,
   };
 }
 
@@ -287,6 +307,7 @@ async function loadByToken(token: string) {
     messages: (msgs ?? []).map(toMessage),
     questionIndex: data.question_index,
     followUpCount: data.follow_up_count,
+    takeCount: data.take_count ?? 0,
     ...(data.started_at ? { startedAt: toKst(data.started_at) } : {}),
     ...(data.completed_at ? { completedAt: toKst(data.completed_at) } : {}),
   };
@@ -327,6 +348,14 @@ async function insertMessages(
         question_id: message.questionId ?? null,
         text: message.text,
         at: message.at,
+        ...(message.media
+          ? {
+              media_path: message.media.path,
+              media_sec: message.media.seconds,
+              media_take: message.media.take,
+              stt_status: message.stt ?? "pending",
+            }
+          : {}),
       }))
     );
   if (error?.code === "23505") return false;
@@ -345,7 +374,7 @@ export async function startInterview(token: string): Promise<InterviewLookup> {
   const now = new Date().toISOString();
   const { data: claimed, error } = await db()
     .from("screen_interviews")
-    .update({ stage: "진행중", consent_at: now, started_at: now, consent_version: CONSENT_VERSION })
+    .update({ stage: "진행중", consent_at: now, started_at: now, consent_version: `${CONSENT_VERSION}/${found.setup.mode}` })
     .eq("id", loaded.row.id)
     .eq("stage", "링크발급")
     .select("id");
@@ -371,19 +400,36 @@ export async function answerInterview(
   const answer = text.trim().slice(0, MAX_ANSWER_CHARS);
   const loaded = await loadByToken(token);
   if (!loaded) return { ok: false, reason: "missing" };
-  const { row, setup, session } = loaded;
-  if (row.stage !== "진행중" || row.opted_out_at || row.purged_at) {
-    return { ok: false, reason: "closed" };
-  }
-  if (new Date(row.expires_at).getTime() < Date.now()) {
-    return { ok: false, reason: "expired" };
-  }
-  if (seen !== session.messages.length || !answer) {
-    return { ok: false, reason: "stale" };
-  }
+  const blocked = blockedReason(loaded, seen);
+  if (blocked) return { ok: false, reason: blocked };
+  // 영상 면접에 글 답을 끼워 넣지 못하게
+  if (!answer || loaded.setup.mode !== "text") return { ok: false, reason: "stale" };
+  const { session, setup } = loaded;
+  return recordAnswer(
+    loaded,
+    applyDecision(appendAnswer(session, setup, answer), decideNextStep(session, setup, answer))
+  );
+}
 
-  const decision = decideNextStep(session, setup, answer);
-  const next = applyDecision(appendAnswer(session, setup, answer), decision);
+type Loaded = NonNullable<Awaited<ReturnType<typeof loadByToken>>>;
+type Blocked = "missing" | "expired" | "stale" | "closed";
+
+/** 답을 받을 수 있는 상태인지. 받을 수 없으면 이유, 받을 수 있으면 null. */
+function blockedReason(loaded: Loaded, seen: number): Blocked | null {
+  const { row, session } = loaded;
+  if (row.stage !== "진행중" || row.opted_out_at || row.purged_at) return "closed";
+  if (new Date(row.expires_at).getTime() < Date.now()) return "expired";
+  if (seen !== session.messages.length) return "stale";
+  // 마지막 발언이 AI 질문이어야 답할 차례다
+  const last = session.messages[session.messages.length - 1];
+  if (!last || last.role !== "ai" || last.kind === "closing") return "stale";
+  return null;
+}
+
+/** 답변과 그 다음 질문을 저장하고 진행 상태를 옮긴다. 글·영상 공통. */
+async function recordAnswer(loaded: Loaded, next: InterviewSession): Promise<AnswerResult> {
+  const { row, session } = loaded;
+  const token = session.token;
   const saved = await insertMessages(row.id, session.messages, next.messages);
   if (!saved) return { ok: false, reason: "stale" };
 
@@ -393,6 +439,7 @@ export async function answerInterview(
     .update({
       question_index: next.questionIndex,
       follow_up_count: next.followUpCount,
+      take_count: 0,
       ...(done
         ? { stage: "제출완료", completed_at: new Date().toISOString() }
         : {}),
@@ -410,6 +457,111 @@ export async function answerInterview(
   return fresh.state === "ok"
     ? { ok: true, session: fresh.session }
     : { ok: false, reason: fresh.state };
+}
+
+/* ── 영상 답변 ───────────────────────────── */
+
+/** 올릴 수 있는 녹화 파일 종류. 브라우저마다 만드는 형식이 다르다(크롬 webm, 사파리 mp4). */
+const VIDEO_EXT: Record<string, string> = { "video/webm": "webm", "video/mp4": "mp4" };
+
+async function videoTurn(token: string, seen: number) {
+  const loaded = await loadByToken(token);
+  if (!loaded) return { ok: false as const, reason: "missing" as const };
+  const blocked = blockedReason(loaded, seen);
+  if (blocked) return { ok: false as const, reason: blocked };
+  if (loaded.setup.mode !== "video") return { ok: false as const, reason: "stale" as const };
+  return { ok: true as const, loaded };
+}
+
+export type TakeResult = { ok: true; take: number } | { ok: false; reason: Blocked };
+
+/**
+ * 녹화를 시작할 때 부른다. 이 질문에서 몇 번째 녹화인지 센다.
+ * 다시 찍기 횟수를 다 썼어도 막지는 않는다(새로고침 등으로 못 올린 경우 후보자가 갇히면 안 된다).
+ * 대신 저장되는 답변에 몇 번째 녹화였는지 남겨 담당자가 본다.
+ */
+export async function beginTake(token: string, seen: number): Promise<TakeResult> {
+  const turn = await videoTurn(token, seen);
+  if (!turn.ok) return turn;
+  const take = turn.loaded.session.takeCount + 1;
+  const { error } = await db()
+    .from("screen_interviews")
+    .update({ take_count: take })
+    .eq("id", turn.loaded.row.id);
+  check(error, "녹화 횟수 저장");
+  return { ok: true, take };
+}
+
+export type UploadTicket =
+  | { ok: true; url: string; path: string }
+  | { ok: false; reason: Blocked | "type" };
+
+/**
+ * 녹화 파일을 올릴 한 번짜리 주소를 만든다(2시간 유효).
+ * 파일은 브라우저가 Supabase 로 바로 올린다 — 우리 서버를 거치면 크기 제한에 걸린다.
+ * 경로 = 면접id/발언번호-무작위.확장자 → 다른 면접 폴더나 다른 차례에 끼워 넣을 수 없다.
+ */
+export async function prepareUpload(
+  token: string,
+  seen: number,
+  contentType: string
+): Promise<UploadTicket> {
+  const ext = VIDEO_EXT[contentType.split(";")[0].trim()];
+  if (!ext) return { ok: false, reason: "type" };
+  const turn = await videoTurn(token, seen);
+  if (!turn.ok) return turn;
+  const path = `${turn.loaded.row.id}/${seen}-${hex(6)}.${ext}`;
+  const { data, error } = await db().storage.from(VIDEO_BUCKET).createSignedUploadUrl(path);
+  check(error, "업로드 주소");
+  return { ok: true, url: data!.signedUrl, path };
+}
+
+const MEDIA_PATH = /^[A-Za-z0-9_-]+\/\d+-[0-9a-f]{12}\.(webm|mp4)$/;
+
+/** 올린 녹화를 답변으로 기록하고 다음 질문을 돌려준다. */
+export async function submitVideoAnswer(
+  token: string,
+  seen: number,
+  path: string,
+  seconds: number
+): Promise<AnswerResult> {
+  const turn = await videoTurn(token, seen);
+  if (!turn.ok) return turn;
+  const { loaded } = turn;
+  const { session, setup, row } = loaded;
+  // 이 면접·이 차례에 받은 주소로 올린 파일만
+  if (!path.startsWith(`${row.id}/${seen}-`) || !MEDIA_PATH.test(path)) {
+    return { ok: false, reason: "stale" };
+  }
+  const { data: there, error } = await db().storage.from(VIDEO_BUCKET).exists(path);
+  if (error || !there) return { ok: false, reason: "stale" };
+
+  const sec = Math.max(0, Math.min(setup.video.answerSec + 5, Math.round(Number(seconds) || 0)));
+  const media = { path, seconds: sec, take: Math.max(1, session.takeCount) };
+  return recordAnswer(
+    loaded,
+    applyDecision(
+      appendAnswer(session, setup, "", media),
+      decideNextStep(session, setup, { seconds: sec })
+    )
+  );
+}
+
+/** 면접 폴더의 녹화 파일을 전부 지운다(보관 기간·삭제 요청). 올리다 만 파일까지. */
+async function removeMedia(interviewId: string) {
+  const bucket = db().storage.from(VIDEO_BUCKET);
+  for (let round = 0; round < 20; round++) {
+    const { data, error } = await bucket.list(interviewId, { limit: 100 });
+    if (error) {
+      // 저장 칸을 아직 안 만든 곳(글 면접만 쓰는 곳)은 지울 것도 없다
+      if (/not.?found/i.test(error.message)) return;
+      throw new Error(`녹화 목록: ${error.message}`);
+    }
+    const names = (data ?? []).filter((f) => f.id).map((f) => `${interviewId}/${f.name}`);
+    if (names.length === 0) return;
+    const { error: removeError } = await bucket.remove(names);
+    check(removeError, "녹화 삭제");
+  }
 }
 
 /* ── 담당자 리포트 ───────────────────────────── */
@@ -813,9 +965,10 @@ export async function candidateRequest(
 
 /**
  * 면접 한 건의 내용을 지운다. 줄(누구에게 언제 보냈는지)은 남기고 대화·점수·검토·요청 메모를 지운다.
- * SC6 이후 영상·음성 파일도 여기서 같이 지운다.
+ * 녹화 파일(저장 칸의 면접 폴더)도 여기서 같이 지운다.
  */
 export async function purgeInterview(id: string, reason: "retention" | "request" | "staff") {
+  await removeMedia(id);
   for (const table of ["screen_messages", "screen_scores", "screen_reviews"]) {
     const { error } = await db().from(table).delete().eq("interview_id", id);
     check(error, `${table} 삭제`);

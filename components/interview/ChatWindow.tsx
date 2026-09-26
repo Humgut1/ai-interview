@@ -7,6 +7,7 @@ import ConsentScreen from "@/components/interview/ConsentScreen";
 import MessageBubble from "@/components/interview/MessageBubble";
 import OptedOutScreen from "@/components/interview/OptedOutScreen";
 import ProgressBar from "@/components/interview/ProgressBar";
+import VideoInterview from "@/components/interview/VideoInterview";
 import { answerAction, startInterviewAction, type CandidateReply } from "@/app/actions";
 import { createMessage, progressOf } from "@/lib/interview";
 import type { CandidateRights } from "@/lib/store";
@@ -125,6 +126,18 @@ export default function ChatWindow({
   if (session.phase === "done") {
     return (
       <CompleteScreen setup={setup} session={session} rights={rights} onRights={setRights} />
+    );
+  }
+
+  if (setup.mode === "video") {
+    return (
+      <VideoInterview
+        setup={setup}
+        session={session}
+        onSession={setSession}
+        rights={rights}
+        onRights={setRights}
+      />
     );
   }
 

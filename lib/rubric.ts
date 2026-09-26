@@ -2,8 +2,11 @@ import {
   CRITERIA_META,
   MAX_WEIGHT,
   MIN_WEIGHT,
+  VIDEO_DEFAULTS,
+  type InterviewMode,
   type Job,
   type Question,
+  type VideoRules,
 } from "@/lib/types";
 
 export function newId() {
@@ -30,6 +33,8 @@ export function createEmptyJob(): Job {
     title: "",
     description: "",
     questions: [createQuestion()],
+    mode: "video",
+    video: { ...VIDEO_DEFAULTS },
   };
 }
 
@@ -78,9 +83,24 @@ export function clampWeight(value: number) {
   return Math.min(MAX_WEIGHT, Math.max(MIN_WEIGHT, Math.round(value) || MIN_WEIGHT));
 }
 
-/** 안내 1분 + 질문당 답변 2분 + 후속질문당 1분 */
-export function estimateMinutes(questions: Question[]) {
+/**
+ * 글: 안내 1분 + 질문당 답변 2분 + 후속질문당 1분
+ * 영상: 기기 확인 2분 + 질문마다 (준비 + 답변) + 되묻는 질문(최대 1개) 몫
+ */
+export function estimateMinutes(
+  questions: Question[],
+  mode: InterviewMode = "text",
+  video: VideoRules = VIDEO_DEFAULTS
+) {
   if (questions.length === 0) return 0;
+  if (mode === "video") {
+    const perTurn = (video.prepSec + video.answerSec) / 60;
+    const turns = questions.reduce(
+      (sum, q) => sum + 1 + Math.min(q.maxFollowUps, 1),
+      0
+    );
+    return Math.ceil(2 + turns * perTurn);
+  }
   return questions.reduce((sum, q) => sum + 2 + q.maxFollowUps, 1);
 }
 
