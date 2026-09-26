@@ -157,10 +157,28 @@ export default function CandidateManager({
                   <span className="rounded-full border border-line-strong bg-surface px-2 py-0.5 text-[11px] font-semibold text-ink-2">
                     {STAGE_LABEL[candidate.stage]}
                   </span>
-                  {candidate.reviewStatus ? (
+                  {candidate.reviewStatus && !candidate.purged ? (
                     <span className="rounded-full bg-mute px-2 py-0.5 text-[11px] text-ink-3">
                       {candidate.reviewStatus}
                     </span>
+                  ) : null}
+                  {candidate.optedOut ? (
+                    <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                      담당자 면접 요청
+                    </span>
+                  ) : null}
+                  {candidate.purged ? (
+                    <span className="rounded-full bg-mute px-2 py-0.5 text-[11px] text-ink-3">
+                      기록 삭제됨
+                    </span>
+                  ) : null}
+                  {candidate.openRequests ? (
+                    <Link
+                      href="/requests"
+                      className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                    >
+                      요청 {candidate.openRequests}
+                    </Link>
                   ) : null}
                 </div>
                 <p className="num mt-1 text-xs text-ink-3" suppressHydrationWarning>
@@ -177,8 +195,10 @@ export default function CandidateManager({
               </div>
 
               <div className="w-16 text-right">
-                {candidate.stage === "제출완료" &&
-                (candidate.finalScore ?? candidate.aiScore) == null ? (
+                {candidate.purged ? (
+                  <p className="text-xs text-ink-3">삭제됨</p>
+                ) : candidate.stage === "제출완료" &&
+                  (candidate.finalScore ?? candidate.aiScore) == null ? (
                   <p className="text-xs text-ink-3">채점 대기</p>
                 ) : candidate.stage === "제출완료" ? (
                   <>
@@ -193,13 +213,15 @@ export default function CandidateManager({
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleCopy(candidate)}
-                  className={`${btnGhost} px-3 py-1.5`}
-                >
-                  링크 복사
-                </button>
+                {candidate.purged || candidate.optedOut ? null : (
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(candidate)}
+                    className={`${btnGhost} px-3 py-1.5`}
+                  >
+                    링크 복사
+                  </button>
+                )}
                 {candidate.reportId ? (
                   <Link
                     href={`/interviews/${candidate.reportId}`}

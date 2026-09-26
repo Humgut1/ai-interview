@@ -36,8 +36,13 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "closed" }, { status: 409 });
   }
 
-  const open = (await interviewsForHireCandidate(cid)).find(
-    (iv) => iv.jobId === job.id && iv.stage !== "제출완료" && !iv.expired
+  const mine = (await interviewsForHireCandidate(cid)).filter((iv) => iv.jobId === job.id);
+  // 후보자가 이 공고에서 AI 대신 담당자 면접을 요청했으면 AI 면접 링크를 다시 보내지 않는다.
+  if (mine.some((iv) => iv.optedOutAt)) {
+    return Response.json({ ok: false, error: "opted-out" }, { status: 409 });
+  }
+  const open = mine.find(
+    (iv) => iv.stage !== "제출완료" && !iv.expired && !iv.purgedAt
   );
   if (open) {
     return Response.json({

@@ -186,6 +186,12 @@ export type Candidate = {
   aiScore?: number;
   finalScore?: number;
   reviewStatus?: ReviewStatus;
+  /** 후보자가 AI 대신 담당자 면접을 요청했다 */
+  optedOut?: boolean;
+  /** 보관 기간·삭제 요청으로 내용을 지웠다 */
+  purged?: boolean;
+  /** 처리 안 된 후보자 요청 수 */
+  openRequests?: number;
 };
 
 /** 대시보드 목록에 쓰는 공고 한 줄. 질문 본문까지는 담지 않는다. */

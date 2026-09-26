@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import RequestBox from "@/components/interview/RequestBox";
 import { btnPrimary, cardClass, labelClass, panelClass } from "@/components/ui/styles";
+import type { CandidateRights } from "@/lib/store";
 import type { InterviewSetup } from "@/lib/types";
 
 const NOTICES = [
@@ -12,11 +14,39 @@ const NOTICES = [
   "말투나 성격이 아니라, 미리 정해 둔 기준에 따라 답변 내용만 평가합니다.",
 ];
 
+/**
+ * 동의 화면. 무엇을 모으고, 왜 쓰고, 누가 보고, 언제 지우는지 + 후보자가 할 수 있는 요청.
+ * 문구를 바꾸면 lib/store.ts 의 CONSENT_VERSION 날짜를 올린다.
+ */
+function dataRows(rights: CandidateRights): [string, string][] {
+  return [
+    ["모으는 것", "이 화면에서 보내 주신 답변 글과 보낸 시각"],
+    ["쓰는 곳", "이 채용 전형의 평가 자료로만 씁니다"],
+    ["보는 사람", "이 공고의 채용 담당자와 면접관"],
+    [
+      "AI 의 역할",
+      "미리 정한 기준에 따라 점수와 근거 문장을 제안합니다. 합격 여부는 채용 담당자가 답변을 읽고 결정합니다.",
+    ],
+    ...(rights.aiAbroad
+      ? ([["국외 처리", "평가 보조를 위해 답변이 미국 Anthropic 의 AI 서버에서 처리됩니다. 학습에는 쓰이지 않습니다."]] as [string, string][])
+      : []),
+    ["보관 기간", `제출일로부터 ${rights.retentionDays}일. 지나면 자동으로 지웁니다.`],
+    [
+      "요청할 수 있는 것",
+      "AI 면접 대신 담당자 면접 · 평가 결과 설명 · 기록 삭제. 요청해도 전형에서 불이익은 없습니다.",
+    ],
+  ];
+}
+
 export default function ConsentScreen({
   setup,
+  rights,
+  onRights,
   onStart,
 }: {
   setup: InterviewSetup;
+  rights: CandidateRights;
+  onRights: (rights: CandidateRights) => void;
   onStart: () => void;
 }) {
   const [agreed, setAgreed] = useState(false);
@@ -70,21 +100,33 @@ export default function ConsentScreen({
       </section>
 
       <section className={`${panelClass} mt-4 px-5 py-4`}>
-        <h2 className={labelClass}>답변 데이터 활용 동의</h2>
-        <p className="mt-2 text-sm leading-relaxed text-ink-2">
-          작성하신 답변은 이 채용 전형의 평가 자료로만 사용되며, 채용 담당자가
-          내용을 확인합니다. 최종 합격 여부는 사람이 판단합니다.
-        </p>
+        <h2 className={labelClass}>답변은 이렇게 쓰입니다</h2>
+        <dl className="mt-3 flex flex-col divide-y divide-line">
+          {dataRows(rights).map(([term, desc]) => (
+            <div key={term} className="flex flex-col gap-0.5 py-2.5 first:pt-0 sm:flex-row sm:gap-4">
+              <dt className="shrink-0 text-sm font-semibold text-ink sm:w-32">{term}</dt>
+              <dd className="text-sm leading-relaxed text-ink-2">{desc}</dd>
+            </div>
+          ))}
+        </dl>
         <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-ink">
           <input
             type="checkbox"
             checked={agreed}
             onChange={(event) => setAgreed(event.target.checked)}
-            className="mt-0.5 h-4 w-4 accent-accent"
+            className="mt-0.5 h-4 w-4 accent-ink"
           />
           <span>위 내용을 확인했고, 답변 데이터 활용에 동의합니다.</span>
         </label>
       </section>
+
+      <RequestBox
+        token={setup.token}
+        rights={rights}
+        kinds={["human"]}
+        onRights={onRights}
+        title="AI 면접이 어려우신가요"
+      />
 
       {/* 화면이 길어도 시작 버튼은 늘 아래에 붙어 있게 한다. */}
       <div className="fixed inset-x-0 bottom-0 border-t border-line bg-surface px-5 py-3">

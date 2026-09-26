@@ -5,9 +5,11 @@ import AnswerInput from "@/components/interview/AnswerInput";
 import CompleteScreen from "@/components/interview/CompleteScreen";
 import ConsentScreen from "@/components/interview/ConsentScreen";
 import MessageBubble from "@/components/interview/MessageBubble";
+import OptedOutScreen from "@/components/interview/OptedOutScreen";
 import ProgressBar from "@/components/interview/ProgressBar";
 import { answerAction, startInterviewAction, type CandidateReply } from "@/app/actions";
 import { createMessage, progressOf } from "@/lib/interview";
+import type { CandidateRights } from "@/lib/store";
 import type { ChatMessage, InterviewSession, InterviewSetup } from "@/lib/types";
 
 const FAIL_TEXT: Record<Exclude<CandidateReply, { ok: true }>["reason"], string> = {
@@ -21,12 +23,15 @@ const FAIL_TEXT: Record<Exclude<CandidateReply, { ok: true }>["reason"], string>
 export default function ChatWindow({
   setup,
   initialSession,
+  initialRights,
 }: {
   setup: InterviewSetup;
   initialSession: InterviewSession;
+  initialRights: CandidateRights;
 }) {
   // 진행 기록의 원본은 서버다. 창을 닫았다 다시 열거나 다른 기기에서 열어도 같은 곳에서 이어진다.
   const [session, setSession] = useState(initialSession);
+  const [rights, setRights] = useState(initialRights);
   const [pendingAnswer, setPendingAnswer] = useState<ChatMessage | null>(null);
   const [starting, setStarting] = useState(false);
   const [startedHere, setStartedHere] = useState(false);
@@ -94,10 +99,20 @@ export default function ChatWindow({
     }
   }
 
+  // 담당자 면접을 요청했으면 제출 전 어느 단계든 AI 면접은 멈춘다.
+  if (rights.optedOut && session.phase !== "done") {
+    return <OptedOutScreen setup={setup} rights={rights} onRights={setRights} />;
+  }
+
   if (session.phase === "consent") {
     return (
       <>
-        <ConsentScreen setup={setup} onStart={handleStart} />
+        <ConsentScreen
+          setup={setup}
+          rights={rights}
+          onRights={setRights}
+          onStart={handleStart}
+        />
         {failure ? (
           <p role="alert" className="mx-auto mb-10 w-full max-w-2xl px-5 text-sm text-rose-600 dark:text-rose-400">
             {failure}
@@ -108,7 +123,9 @@ export default function ChatWindow({
   }
 
   if (session.phase === "done") {
-    return <CompleteScreen setup={setup} session={session} />;
+    return (
+      <CompleteScreen setup={setup} session={session} rights={rights} onRights={setRights} />
+    );
   }
 
   return (

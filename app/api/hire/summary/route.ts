@@ -28,8 +28,9 @@ export async function GET(req: Request) {
     createUrl: `${base}/jobs/new?hire=${encodeURIComponent(pid)}`,
     interviews: interviews.map(({ token, ...iv }) => ({
       ...iv,
-      link: `${base}/interview/${token}`,
-      reportUrl: iv.stage === "제출완료" ? `${base}/interviews/${iv.id}` : null,
+      link: iv.purgedAt || iv.optedOutAt ? null : `${base}/interview/${token}`,
+      reportUrl: iv.stage === "제출완료" && !iv.purgedAt ? `${base}/interviews/${iv.id}` : null,
+      requests: iv.requests.map(({ note, ...r }) => ({ ...r, note: note.slice(0, 300) })),
     })),
   });
 }

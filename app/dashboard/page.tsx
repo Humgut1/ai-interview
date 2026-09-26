@@ -4,7 +4,7 @@ import { btnPrimary, cardClass, labelClass, panelClass } from "@/components/ui/s
 import { countStages } from "@/lib/candidates";
 import { StoreMissing } from "@/components/ui/Notice";
 import { isStoreConfigured } from "@/lib/db";
-import { listJobs } from "@/lib/store";
+import { listJobs, openRequestCount, purgeExpired } from "@/lib/store";
 import { requireStaff } from "@/lib/auth/staff";
 
 export const metadata = {
@@ -26,6 +26,12 @@ function shortDate(iso: string) {
 export default async function DashboardPage() {
   const staff = await requireStaff();
   if (!isStoreConfigured()) return <StoreMissing />;
+
+  // 보관 기간이 지난 기록은 대시보드를 열 때도 지운다(매일 도는 일이 빠져도 늦지 않게).
+  try {
+    await purgeExpired();
+  } catch {}
+  const requests = await openRequestCount();
 
   const rows = (await listJobs()).map(({ job, candidates }) => ({
     job,
@@ -60,6 +66,14 @@ export default async function DashboardPage() {
           검토 대기 <span className="num text-ink">{waiting}</span>명 &nbsp;·&nbsp; 진행 중 면접{" "}
           <span className="num text-ink">{running}</span>명 &nbsp;·&nbsp; 진행 중 공고{" "}
           <span className="num text-ink">{openJobs}</span>개
+          {requests > 0 ? (
+            <>
+              &nbsp;·&nbsp;{" "}
+              <Link href="/requests" className="text-ink underline underline-offset-2">
+                후보자 요청 <span className="num">{requests}</span>건
+              </Link>
+            </>
+          ) : null}
         </p>
 
         <section className="mt-8">

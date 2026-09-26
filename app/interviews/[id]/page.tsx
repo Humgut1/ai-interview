@@ -40,6 +40,7 @@ export default async function InterviewReportPage({
       initialReview={bundle.review}
       initialStatus={bundle.status}
       who={staff.name}
+      requests={bundle.requests}
     />
   );
 }

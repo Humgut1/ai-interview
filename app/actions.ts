@@ -2,10 +2,15 @@
 
 import {
   answerInterview,
+  candidateRequest,
   createJob,
+  handleRequest,
   issueInterview,
+  saveRetentionDays,
   saveReview,
   startInterview,
+  type CandidateRights,
+  type RequestKind,
 } from "@/lib/store";
 import { validateJob } from "@/lib/rubric";
 import { staffOrNull } from "@/lib/auth/staff";
@@ -71,6 +76,33 @@ export async function saveReviewAction(
   }
 }
 
+/** 후보자 요청 처리 — [처리 완료] 또는 [지금 삭제]. */
+export async function handleRequestAction(
+  requestId: string,
+  action: "done" | "delete"
+): Promise<{ ok: boolean }> {
+  const staff = await staffOrNull();
+  if (!staff) return { ok: false };
+  if (typeof requestId !== "string" || !/^rq_[0-9a-f]{12}$/.test(requestId)) return { ok: false };
+  if (action !== "done" && action !== "delete") return { ok: false };
+  try {
+    return { ok: await handleRequest(requestId, action, staff.name) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** 보관 기간 — HR 관리자만. */
+export async function saveRetentionAction(days: number): Promise<{ ok: boolean }> {
+  const staff = await staffOrNull();
+  if (!staff || staff.role !== "admin") return { ok: false };
+  try {
+    return { ok: await saveRetentionDays(Number(days), staff.name) };
+  } catch {
+    return { ok: false };
+  }
+}
+
 /* ── 후보자 ───────────────────────────── */
 
 export type CandidateReply =
@@ -98,6 +130,28 @@ export async function answerAction(
   }
   try {
     return await answerInterview(token, text, seen);
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}
+
+export type RightsReply =
+  | { ok: true; rights: CandidateRights }
+  | { ok: false; reason: "missing" | "purged" | "not-now" | "error" };
+
+const KINDS: RequestKind[] = ["human", "explain", "delete"];
+
+/** 후보자 요청 — 담당자 면접 · 결과 설명 · 기록 삭제. 링크 값(token)으로만 지킨다. */
+export async function candidateRequestAction(
+  token: string,
+  kind: RequestKind,
+  note = ""
+): Promise<RightsReply> {
+  if (typeof token !== "string" || !KINDS.includes(kind) || typeof note !== "string") {
+    return { ok: false, reason: "error" };
+  }
+  try {
+    return await candidateRequest(token, kind, note);
   } catch {
     return { ok: false, reason: "error" };
   }

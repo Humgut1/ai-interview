@@ -1,6 +1,8 @@
 "use client";
 
+import RequestBox from "@/components/interview/RequestBox";
 import { cardClass, labelClass } from "@/components/ui/styles";
+import type { CandidateRights } from "@/lib/store";
 import type { InterviewSession, InterviewSetup } from "@/lib/types";
 
 const NEXT_STEPS = [
@@ -12,9 +14,13 @@ const NEXT_STEPS = [
 export default function CompleteScreen({
   setup,
   session,
+  rights,
+  onRights,
 }: {
   setup: InterviewSetup;
   session: InterviewSession;
+  rights: CandidateRights;
+  onRights: (rights: CandidateRights) => void;
 }) {
   const answered = session.messages.filter(
     (message) => message.role === "candidate"
@@ -61,8 +67,18 @@ export default function CompleteScreen({
         </ol>
       </section>
 
+      <RequestBox
+        token={setup.token}
+        rights={rights}
+        kinds={["explain", "delete"]}
+        onRights={onRights}
+        title="요청하기"
+      />
+
       <p className="mt-6 text-sm text-ink-3">
-        이 창은 닫으셔도 됩니다. 제출한 답변은 그대로 전달되었습니다.
+        이 창은 닫으셔도 됩니다. 제출한 답변은 그대로 전달되었습니다. 답변 기록은
+        제출일로부터 {rights.retentionDays}일 뒤 자동으로 지웁니다. 이 링크로 다시 들어오면
+        요청을 할 수 있습니다.
       </p>
 
     </div>

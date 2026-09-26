@@ -26,6 +26,8 @@ import {
 } from "@/lib/review";
 import { weightPercents } from "@/lib/rubric";
 import { saveReviewAction } from "@/app/actions";
+import { REQUEST_LABEL } from "@/lib/requests";
+import type { ScreenRequest } from "@/lib/store";
 import type {
   CandidateRow,
   InterviewReport,
@@ -39,12 +41,15 @@ export default function ReportView({
   initialReview,
   initialStatus,
   who,
+  requests = [],
 }: {
   report: InterviewReport;
   candidates: CandidateRow[];
   initialReview: RecruiterReview;
   initialStatus: ReviewStatus;
   who?: string;
+  /** 처리 안 된 후보자 요청 — 있으면 맨 위에 띠로 알린다 */
+  requests?: ScreenRequest[];
 }) {
   const [review, setReview] = useState<RecruiterReview>(initialReview);
   const [status, setStatus] = useState<ReviewStatus>(initialStatus);
@@ -126,6 +131,16 @@ export default function ReportView({
             </p>
           </div>
         </div>
+
+        {requests.length > 0 ? (
+          <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+            <span className="font-semibold">후보자 요청</span>
+            <span>{requests.map((r) => REQUEST_LABEL[r.kind]).join(" · ")}</span>
+            <a href="/requests" className="ml-auto underline underline-offset-2">
+              요청 처리하기
+            </a>
+          </div>
+        ) : null}
 
         <div className="grid items-start gap-5 lg:grid-cols-[236px_minmax(0,1fr)_296px]">
           {/* 왼쪽 — 같은 직무 후보자 */}

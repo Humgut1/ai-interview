@@ -5,7 +5,9 @@ import type { ReactNode } from "react";
 const NAV = [
   { href: "/dashboard", label: "대시보드" },
   { href: "/jobs/new", label: "새 직무" },
-  ];
+  { href: "/requests", label: "후보자 요청" },
+  { href: "/settings", label: "설정" },
+];
 
 export default function TopBar({
   current,
