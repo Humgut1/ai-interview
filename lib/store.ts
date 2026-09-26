@@ -70,7 +70,11 @@ function toJob(row: any): Job {
   };
 }
 
-export async function createJob(job: Job, createdBy?: string) {
+export async function createJob(
+  job: Job,
+  createdBy?: string,
+  hirePositionId?: string
+) {
   const id = `job_${hex(5)}`;
   const { error } = await db().from("screen_jobs").insert({
     id,
@@ -78,6 +82,7 @@ export async function createJob(job: Job, createdBy?: string) {
     description: job.description.trim(),
     questions: job.questions,
     created_by: createdBy ?? null,
+    hire_position_id: hirePositionId ?? null,
   });
   check(error, "공고 저장");
   return id;
@@ -512,4 +517,110 @@ export async function saveReview(
     );
   check(error, "검토 저장");
   return true;
+}
+
+/* ── Hire 연결 (SC4) ───────────────────────────── */
+
+/** Hire 공고 한 건 — 새 직무 만들기 화면이 제목·직무 설명을 채워 넣는 데 쓴다. 같은 Supabase 프로젝트의 Hire 표. */
+export async function hirePosition(pid: string) {
+  const { data, error } = await db()
+    .from("positions")
+    .select("id, title, jd")
+    .eq("id", pid)
+    .maybeSingle();
+  check(error, "Hire 공고 조회");
+  if (!data) return null;
+  // 사내 메모 첫 줄(※ TalentCore 요청 …)은 빼고 넘긴다
+  const jd = String(data.jd ?? "")
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("※"))
+    .join("\n")
+    .trim();
+  return { id: data.id as string, title: String(data.title ?? ""), jd };
+}
+
+/** 그 Hire 공고에 연결된 질문 묶음 — 여러 개면 가장 최근 것. */
+export async function jobForHirePosition(pid: string) {
+  const { data, error } = await db()
+    .from("screen_jobs")
+    .select("id, title, status, questions")
+    .eq("hire_position_id", pid)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  check(error, "연결된 공고 조회");
+  return data
+    ? {
+        id: data.id as string,
+        title: data.title as string,
+        status: data.status as string,
+        questionCount: (data.questions ?? []).length as number,
+      }
+    : null;
+}
+
+export interface HireInterview {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  token: string;
+  stage: CandidateStage;
+  invitedAt: string;
+  expiresAt: string;
+  expired: boolean;
+  completedAt: string | null;
+  reviewStatus: ReviewStatus | null;
+  /** 채점(SC2) 전에는 없다 */
+  aiScore: number | null;
+  /** 담당자가 고친 점수가 있으면 반영한 값 */
+  finalScore: number | null;
+  reviewer: string | null;
+}
+
+/** Hire 후보자 한 명의 Screen 면접들 (최근 것 먼저). */
+export async function interviewsForHireCandidate(cid: string): Promise<HireInterview[]> {
+  const { data, error } = await db()
+    .from("screen_interviews")
+    .select(
+      "*, screen_jobs(title, questions), screen_reviews(status, overrides, reviewer), screen_scores(question_id, score)"
+    )
+    .eq("hire_candidate_id", cid)
+    .order("created_at", { ascending: false });
+  check(error, "Hire 후보자 면접 조회");
+  const now = Date.now();
+  return (data ?? []).map((row: any) => {
+    const review = Array.isArray(row.screen_reviews) ? row.screen_reviews[0] : row.screen_reviews;
+    const job = Array.isArray(row.screen_jobs) ? row.screen_jobs[0] : row.screen_jobs;
+    const scores = (row.screen_scores ?? []) as { question_id: string; score: number }[];
+    const questions = (job?.questions ?? []) as Question[];
+    const weights = new Map(questions.map((q) => [q.id, Number(q.weight) || 1]));
+    const avg = (pick: (s: { question_id: string; score: number }) => number) => {
+      if (!scores.length) return null;
+      let sum = 0;
+      let w = 0;
+      for (const s of scores) {
+        const k = weights.get(s.question_id) ?? 1;
+        sum += pick(s) * k;
+        w += k;
+      }
+      return w ? Math.round(sum / w) : null;
+    };
+    const overrides = (review?.overrides ?? {}) as Record<string, number>;
+    const submitted = row.stage === "제출완료";
+    return {
+      id: row.id,
+      jobId: row.job_id,
+      jobTitle: job?.title ?? "",
+      token: row.token,
+      stage: row.stage as CandidateStage,
+      invitedAt: toKst(row.created_at),
+      expiresAt: toKst(row.expires_at),
+      expired: !submitted && new Date(row.expires_at).getTime() < now,
+      completedAt: row.completed_at ? toKst(row.completed_at) : null,
+      reviewStatus: submitted ? ((review?.status ?? "미검토") as ReviewStatus) : null,
+      aiScore: avg((s) => s.score),
+      finalScore: avg((s) => (typeof overrides[s.question_id] === "number" ? overrides[s.question_id] : s.score)),
+      reviewer: review?.reviewer ?? null,
+    };
+  });
 }

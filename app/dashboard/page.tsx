@@ -5,6 +5,7 @@ import { countStages } from "@/lib/candidates";
 import { StoreMissing } from "@/components/ui/Notice";
 import { isStoreConfigured } from "@/lib/db";
 import { listJobs } from "@/lib/store";
+import { requireStaff } from "@/lib/auth/staff";
 
 export const metadata = {
   title: "대시보드 · AI 면접",
@@ -23,6 +24,7 @@ function shortDate(iso: string) {
  * "지금 내가 뭘 해야 하는지"를 위에, 공고 목록을 아래에 둔다.
  */
 export default async function DashboardPage() {
+  const staff = await requireStaff();
   if (!isStoreConfigured()) return <StoreMissing />;
 
   const rows = (await listJobs()).map(({ job, candidates }) => ({
@@ -36,7 +38,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-dvh">
-      <TopBar current="대시보드" />
+      <TopBar current="대시보드" who={staff.name} />
 
       <main className="mx-auto w-full max-w-[1100px] px-4 pb-20 lg:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4 py-6">

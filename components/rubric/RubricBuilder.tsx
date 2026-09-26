@@ -47,7 +47,14 @@ function hasContent(job: Job) {
   );
 }
 
-export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
+export default function RubricBuilder({
+  initialJob,
+  hirePositionId,
+}: {
+  initialJob: Job;
+  /** Hire 공고에서 넘어왔으면 그 공고 id — 저장할 때 같이 적어 Hire 가 이 질문 묶음을 찾게 한다. */
+  hirePositionId?: string;
+}) {
   const [job, setJob] = useState<Job>(initialJob);
   const [showErrors, setShowErrors] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -209,7 +216,7 @@ export default function RubricBuilder({ initialJob }: { initialJob: Job }) {
       return;
     }
     setSaving(true);
-    const result = await saveJobAction(job);
+    const result = await saveJobAction(job, hirePositionId);
     if (!result.ok) {
       setSaving(false);
       setToast({ tone: "warn", text: result.reason });

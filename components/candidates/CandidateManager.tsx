@@ -35,9 +35,11 @@ function stamp(iso: string) {
 export default function CandidateManager({
   job,
   initialCandidates,
+  who,
 }: {
   job: JobSummary;
   initialCandidates: Candidate[];
+  who?: string;
 }) {
   const [candidates, setCandidates] = useState(initialCandidates);
   const [stage, setStage] = useState<"전체" | CandidateStage>("전체");
@@ -84,6 +86,7 @@ export default function CandidateManager({
   return (
     <div className="min-h-dvh">
       <TopBar
+        who={who}
         current="후보자 관리"
         right={
           <button

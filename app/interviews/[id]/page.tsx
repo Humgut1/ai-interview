@@ -2,6 +2,7 @@ import ReportView from "@/components/review/ReportView";
 import Notice, { StoreMissing } from "@/components/ui/Notice";
 import { isStoreConfigured } from "@/lib/db";
 import { getReport } from "@/lib/store";
+import { requireStaff } from "@/lib/auth/staff";
 
 export const metadata = {
   title: "면접 결과 리포트 · AI 면접",
@@ -16,6 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function InterviewReportPage({
   params,
 }: PageProps<"/interviews/[id]">) {
+  const staff = await requireStaff();
   const { id } = await params;
   if (!isStoreConfigured()) return <StoreMissing />;
 
@@ -37,6 +39,7 @@ export default async function InterviewReportPage({
       candidates={bundle.candidates}
       initialReview={bundle.review}
       initialStatus={bundle.status}
+      who={staff.name}
     />
   );
 }

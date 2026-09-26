@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireStaff } from "@/lib/auth/staff";
 import { inputClass } from "@/components/ui/Field";
 import {
   barFillClass,
@@ -70,7 +71,8 @@ function Section({
  * 화면에 쓰는 색·글자·버튼을 한 장에 모아 둔 스타일 가이드.
  * 새 화면을 만들 때 여기 있는 것만 골라 쓰면 생김새가 어긋나지 않는다.
  */
-export default function DesignPage() {
+export default async function DesignPage() {
+  await requireStaff();
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-5 py-14">
       <header>

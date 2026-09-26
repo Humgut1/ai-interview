@@ -2,6 +2,7 @@ import CandidateManager from "@/components/candidates/CandidateManager";
 import Notice, { StoreMissing } from "@/components/ui/Notice";
 import { isStoreConfigured } from "@/lib/db";
 import { getJobSummary } from "@/lib/store";
+import { requireStaff } from "@/lib/auth/staff";
 
 export const metadata = {
   title: "후보자 관리 · AI 면접",
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function CandidatesPage({
   params,
 }: PageProps<"/jobs/[id]/candidates">) {
+  const staff = await requireStaff();
   const { id } = await params;
   if (!isStoreConfigured()) return <StoreMissing />;
 
@@ -23,5 +25,5 @@ export default async function CandidatesPage({
     );
   }
 
-  return <CandidateManager job={found.job} initialCandidates={found.candidates} />;
+  return <CandidateManager job={found.job} initialCandidates={found.candidates} who={staff.name} />;
 }

@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { isAiConfigured } from "@/lib/ai/client";
 import { DraftFormatError, draftQuestions } from "@/lib/ai/draft-questions";
 import { sampleDraftQuestions } from "@/lib/mock/jobs";
+import { staffOrNull } from "@/lib/auth/staff";
 
 /**
  * 직무 설명 → 질문·평가 기준 초안.
@@ -12,6 +13,9 @@ import { sampleDraftQuestions } from "@/lib/mock/jobs";
 export const maxDuration = 120;
 
 export async function POST(request: Request) {
+  if (!(await staffOrNull())) {
+    return Response.json({ ok: false, reason: "로그인이 필요합니다." }, { status: 401 });
+  }
   let body: { title?: unknown; description?: unknown };
   try {
     body = await request.json();

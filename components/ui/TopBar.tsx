@@ -5,17 +5,19 @@ import type { ReactNode } from "react";
 const NAV = [
   { href: "/dashboard", label: "대시보드" },
   { href: "/jobs/new", label: "새 직무" },
-  { href: "/design", label: "스타일 가이드" },
-];
+  ];
 
 export default function TopBar({
   current,
   right,
+  who,
 }: {
   /** 지금 보고 있는 화면 이름. 로고 옆에 흐리게 적는다. */
   current?: string;
   /** 오른쪽 끝에 놓을 버튼 (화면마다 다르다) */
   right?: ReactNode;
+  /** 로그인한 담당자 이름. 있으면 오른쪽 끝에 이름과 [로그아웃]. */
+  who?: string;
 }) {
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-surface">
@@ -48,6 +50,19 @@ export default function TopBar({
 
         {right ? (
           <div className="ml-auto flex items-center gap-2 md:ml-0">{right}</div>
+        ) : null}
+
+        {who ? (
+          <form
+            action="/api/auth/logout"
+            method="post"
+            className={`flex shrink-0 items-center gap-2 ${right ? "" : "ml-auto md:ml-0"}`}
+          >
+            <span className="hidden max-w-[8rem] truncate text-[13px] text-ink-2 sm:inline">{who}</span>
+            <button type="submit" className="text-[13px] text-ink-3 underline-offset-2 hover:text-ink hover:underline">
+              로그아웃
+            </button>
+          </form>
         ) : null}
       </div>
     </header>

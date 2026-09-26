@@ -38,11 +38,13 @@ export default function ReportView({
   candidates,
   initialReview,
   initialStatus,
+  who,
 }: {
   report: InterviewReport;
   candidates: CandidateRow[];
   initialReview: RecruiterReview;
   initialStatus: ReviewStatus;
+  who?: string;
 }) {
   const [review, setReview] = useState<RecruiterReview>(initialReview);
   const [status, setStatus] = useState<ReviewStatus>(initialStatus);
@@ -99,6 +101,7 @@ export default function ReportView({
   return (
     <div className="min-h-dvh">
       <TopBar
+        who={who}
         current="결과 검토"
         right={
           <a href="#transcript" className={`${btnSecondary} px-3 py-1.5`}>
