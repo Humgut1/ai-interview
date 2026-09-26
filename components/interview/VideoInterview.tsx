@@ -138,11 +138,13 @@ export default function VideoInterview({
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!Ctx || stream.getAudioTracks().length === 0) return;
     const ctx = new Ctx();
+    // 브라우저가 소리 처리를 멈춘 채로 만들 때가 있다 — 막대가 0 에 붙어 있지 않게 깨운다.
+    void ctx.resume().catch(() => {});
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 512;
     ctx.createMediaStreamSource(stream).connect(analyser);
     const data = new Uint8Array(analyser.fftSize);
-    let frame = 0;
+    // 화면 새로 그리기(rAF) 대신 타이머 — 창이 가려져도 멈추지 않고, 막대에는 이 정도면 충분하다.
     const tick = () => {
       analyser.getByteTimeDomainData(data);
       let sum = 0;
@@ -150,11 +152,10 @@ export default function VideoInterview({
       const rms = Math.min(1, Math.sqrt(sum / data.length) * 4);
       setLevel(rms);
       if (rms > 0.12) setHeard(true);
-      frame = requestAnimationFrame(tick);
     };
-    tick();
+    const timer = setInterval(tick, 80);
     return () => {
-      cancelAnimationFrame(frame);
+      clearInterval(timer);
       void ctx.close();
     };
   }, [stream, step]);
