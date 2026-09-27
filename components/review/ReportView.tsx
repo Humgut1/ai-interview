@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import CandidateList from "@/components/review/CandidateList";
+import AnswerCard from "@/components/review/AnswerCard";
 import ScoreCard from "@/components/review/ScoreCard";
 import TranscriptView from "@/components/review/TranscriptView";
 import { textareaClass } from "@/components/ui/Field";
@@ -220,7 +221,7 @@ export default function ReportView({
               <section className={`${cardClass} p-5`}>
                 <p className={labelClass}>채점 대기</p>
                 <p className="mt-2 text-[15px] leading-relaxed text-ink">
-                  아직 채점하지 않은 면접입니다. 아래 대화 전문을 읽고 메모를 남길 수 있습니다.
+                  아직 채점하지 않은 면접입니다. 문항마다 영상과 받아 적은 글을 보고 메모를 남길 수 있습니다.
                 </p>
               </section>
             )}
@@ -229,7 +230,20 @@ export default function ReportView({
               const score = report.scores.find(
                 (item) => item.questionId === question.id
               );
-              if (!score) return null;
+              if (!score) {
+                return (
+                  <AnswerCard
+                    key={question.id}
+                    index={index}
+                    question={question}
+                    percent={percents[question.id] ?? 0}
+                    messages={messagesFor(report, question.id)}
+                    review={review}
+                    onMemo={handleMemo}
+                    sttReady={sttReady}
+                  />
+                );
+              }
 
               return (
                 <ScoreCard
@@ -242,6 +256,7 @@ export default function ReportView({
                   review={review}
                   onOverride={handleOverride}
                   onMemo={handleMemo}
+                  sttReady={sttReady}
                 />
               );
             })}

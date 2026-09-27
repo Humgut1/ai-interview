@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { textareaClass } from "@/components/ui/Field";
+import VideoAnswer from "@/components/review/VideoAnswer";
 import {
   barFillClass,
   barTrackClass,
@@ -62,6 +63,7 @@ export default function ScoreCard({
   review,
   onOverride,
   onMemo,
+  sttReady = false,
 }: {
   index: number;
   question: Question;
@@ -72,6 +74,7 @@ export default function ScoreCard({
   review: RecruiterReview;
   onOverride: (questionId: string, value: number | null) => void;
   onMemo: (questionId: string, memo: string) => void;
+  sttReady?: boolean;
 }) {
   const final = effectiveScore(score, review);
   const changed = isOverridden(score, review);
@@ -152,6 +155,23 @@ export default function ScoreCard({
                 </span>
                 {message.text}
               </p>
+            ) : message.media ? (
+              <VideoAnswer
+                key={message.id}
+                message={message}
+                sttReady={sttReady}
+                renderText={(text) =>
+                  toPieces(text, quotesByMessage[message.id] ?? []).map((piece, i) =>
+                    piece.highlighted ? (
+                      <mark key={i} className={`${evidenceClass} text-ink`}>
+                        {piece.text}
+                      </mark>
+                    ) : (
+                      <span key={i}>{piece.text}</span>
+                    )
+                  )
+                }
+              />
             ) : (
               <p
                 key={message.id}

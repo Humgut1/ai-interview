@@ -128,6 +128,8 @@ export type ChatMessage = {
     seconds: number;
     /** 이 질문에서 몇 번째 녹화였는지 (1부터) */
     take: number;
+    /** 잠깐만 열리는 재생 주소 — 담당자 리포트에서만 붙는다 */
+    url?: string;
   };
   /** 받아 적기 상태 — 영상 답변에만 */
   stt?: "pending" | "done" | "failed";

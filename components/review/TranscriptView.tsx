@@ -17,13 +17,13 @@ const KIND_LABEL: Record<ChatMessage["kind"], string> = {
 const REFRESH_MS = 8_000;
 const REFRESH_MAX = 40;
 
-function clock(total: number) {
+export function clock(total: number) {
   const s = Math.max(0, Math.round(total));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 /** 받아 적기 상태 한 마디. 실패·멈춤은 사유를 붙인다. */
-function sttLabel(message: ChatMessage, ready: boolean) {
+export function sttLabel(message: ChatMessage, ready: boolean) {
   const note = message.sttNote;
   if (message.stt === "done") return note ? `받아 적음 · ${note}` : "받아 적음";
   if (message.stt === "failed") return `받아 적기 실패${note ? ` · ${note}` : ""} · 영상을 직접 확인하세요`;

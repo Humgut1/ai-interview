@@ -736,6 +736,28 @@ export type ReportBundle = {
   requests: ScreenRequest[];
 };
 
+/** 담당자 리포트의 영상 주소가 열려 있는 시간(초). 화면을 오래 켜 두면 다시 불러야 한다. */
+export const REPORT_VIDEO_SEC = 60 * 60;
+/** Hire 에서 [영상 보기]로 여는 주소가 열려 있는 시간(초) */
+export const HIRE_VIDEO_SEC = 15 * 60;
+
+/**
+ * 영상 답변마다 잠깐만 열리는 주소를 붙인다(비공개 저장 칸이라 주소 없이는 못 본다).
+ * 주소를 못 만들면 url 없이 둔다 — 화면이 '영상을 불러오지 못함'으로 보인다.
+ */
+async function withVideoUrls(messages: ChatMessage[], seconds: number): Promise<ChatMessage[]> {
+  const paths = messages.flatMap((m) => (m.media ? [m.media.path] : []));
+  if (!paths.length) return messages;
+  const { data, error } = await db().storage.from(VIDEO_BUCKET).createSignedUrls(paths, seconds);
+  if (error || !data) return messages;
+  const urls = new Map(
+    data.flatMap((d) => (d.path && d.signedUrl && !d.error ? [[d.path, d.signedUrl] as const] : []))
+  );
+  return messages.map((m) =>
+    m.media && urls.has(m.media.path) ? { ...m, media: { ...m.media, url: urls.get(m.media.path) } } : m
+  );
+}
+
 export async function getReport(id: string): Promise<ReportBundle | null> {
   const { data: row, error } = await db()
     .from("screen_interviews")
@@ -783,10 +805,13 @@ export async function getReport(id: string): Promise<ReportBundle | null> {
       summary: row.ai_summary ?? "",
       questions: job.questions,
       scores: (row.screen_scores ?? []).map(toScore),
-      transcript: (msgs ?? []).map((m) => ({
-        ...toMessage(m),
-        ...(Array.isArray(m.stt_segments) ? { segments: m.stt_segments as SttSegment[] } : {}),
-      })),
+      transcript: await withVideoUrls(
+        (msgs ?? []).map((m) => ({
+          ...toMessage(m),
+          ...(Array.isArray(m.stt_segments) ? { segments: m.stt_segments as SttSegment[] } : {}),
+        })),
+        REPORT_VIDEO_SEC
+      ),
     },
     review: {
       overrides: reviewRow?.overrides ?? {},
@@ -959,6 +984,71 @@ export async function interviewsForHireCandidate(cid: string): Promise<HireInter
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     };
   });
+}
+
+/** Hire [영상 보기] — 문항마다 질문 · 되물은 질문 · 답변(영상 주소 · 받아 적은 글). 평가 기준·점수는 없다. */
+export interface HireAnswers {
+  jobTitle: string;
+  completedAt: string;
+  questions: {
+    id: string;
+    text: string;
+    items: {
+      id: string;
+      role: "ai" | "candidate";
+      kind: ChatMessage["kind"];
+      text: string;
+      media?: { url: string | null; seconds: number; take: number };
+      stt?: ChatMessage["stt"];
+      segments?: SttSegment[];
+    }[];
+  }[];
+}
+
+/** Hire 후보자(cid)의 제출된 면접 하나. 다른 후보자 것이거나 지운 면접이면 null. */
+export async function answersForHire(cid: string, interviewId: string): Promise<HireAnswers | null> {
+  const { data: row, error } = await db()
+    .from("screen_interviews")
+    .select("id, stage, purged_at, completed_at, hire_candidate_id, screen_jobs(title, questions)")
+    .eq("id", interviewId)
+    .maybeSingle();
+  check(error, "Hire 영상 조회");
+  if (!row || row.hire_candidate_id !== cid || row.stage !== "제출완료" || row.purged_at) return null;
+  const job: any = Array.isArray(row.screen_jobs) ? row.screen_jobs[0] : row.screen_jobs;
+  const { data: msgs, error: msgError } = await db()
+    .from("screen_messages")
+    .select("*")
+    .eq("interview_id", interviewId)
+    .order("seq", { ascending: true });
+  check(msgError, "대화 조회");
+  const transcript = await withVideoUrls(
+    (msgs ?? []).map((m) => ({
+      ...toMessage(m),
+      ...(Array.isArray(m.stt_segments) ? { segments: m.stt_segments as SttSegment[] } : {}),
+    })),
+    HIRE_VIDEO_SEC
+  );
+  return {
+    jobTitle: job?.title ?? "",
+    completedAt: toKst(row.completed_at),
+    questions: ((job?.questions ?? []) as Question[]).map((q) => ({
+      id: q.id,
+      text: q.text,
+      items: transcript
+        .filter((m) => m.questionId === q.id && m.kind !== "question")
+        .map((m) => ({
+          id: m.id,
+          role: m.role,
+          kind: m.kind,
+          text: m.text,
+          ...(m.media
+            ? { media: { url: m.media.url ?? null, seconds: m.media.seconds, take: m.media.take } }
+            : {}),
+          ...(m.stt ? { stt: m.stt } : {}),
+          ...(m.segments ? { segments: m.segments } : {}),
+        })),
+    })),
+  };
 }
 
 /* ── 후보자 권리 (SC4.5) ───────────────────────────── */
