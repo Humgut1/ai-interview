@@ -21,10 +21,10 @@
   --color-ink-2: #55605c; /* 보조 설명 */
   --color-ink-3: #8a938f; /* 라벨, 흐린 정보 */
 
-  /* 포인트 — 누를 수 있는 것과 지금 보고 있는 것에만 쓴다 */
-  --color-accent: #0f766e;
-  --color-accent-hover: #0b5f58;
-  --color-accent-soft: #e4f1ef;
+  /* 포인트 — 무채색. 색은 상태(합격·주의 등)에만 쓴다 */
+  --color-accent: #1c2120;
+  --color-accent-hover: #353b39;
+  --color-accent-soft: #eceeeb;
 
   /* 점수 막대. 일부러 등급별로 색을 바꾸지 않는다 (신호등 금지) */
   --color-bar: #3b4744;
@@ -43,9 +43,9 @@
     --color-ink: #e6ebe9;
     --color-ink-2: #a9b2ae;
     --color-ink-3: #7f8985;
-    --color-accent: #3fb2a6;
-    --color-accent-hover: #5cc4b8;
-    --color-accent-soft: #173330;
+    --color-accent: #e6ebe9;
+    --color-accent-hover: #ffffff;
+    --color-accent-soft: #2a302e;
     --color-bar: #b3beba;
   }
 }

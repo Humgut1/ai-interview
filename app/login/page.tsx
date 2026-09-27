@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { labelClass } from "@/components/ui/styles";
+import { BrandLockup } from "@/components/brand/BrandMark";
 import { checkStaff } from "@/lib/auth/staff";
 
 export const metadata = {
@@ -53,7 +54,8 @@ export default async function LoginPage({
 
   return (
     <main className="mx-auto w-full max-w-md px-5 py-20">
-      <p className={labelClass}>Screen · AI 1차 면접</p>
+      <BrandLockup size={26} />
+      <p className={`${labelClass} mt-8`}>Screen · AI 1차 면접</p>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink">{msg.title}</h1>
       <p className="mt-3 text-[15px] leading-relaxed text-ink-2">{msg.body}</p>
 

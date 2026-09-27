@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import BrandMark from "@/components/brand/BrandMark";
 
 /** 화면 위쪽에 늘 같은 자리로 붙는 머리띠. 어느 화면에서도 길을 잃지 않게 한다. */
 const NAV = [
@@ -25,13 +26,8 @@ export default function TopBar({
     <header className="sticky top-0 z-10 border-b border-line bg-surface">
       <div className="mx-auto flex h-14 w-full max-w-[1400px] items-center gap-6 px-4 lg:px-6">
         <Link href="/" className="flex shrink-0 items-center gap-2">
-          <span
-            aria-hidden
-            className="flex h-6 w-6 items-center justify-center rounded-md bg-ink"
-          >
-            <span className="block h-0.5 w-3 bg-surface" />
-          </span>
-          <span className="text-sm font-semibold text-ink">AI 면접 도구</span>
+          <BrandMark size={22} className="text-ink" />
+          <span className="text-sm font-semibold text-ink">Screen</span>
         </Link>
 
         {current ? (
