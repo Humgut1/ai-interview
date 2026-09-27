@@ -19,6 +19,7 @@ import {
 } from "@/lib/store";
 import { validateJob } from "@/lib/rubric";
 import { staffOrNull } from "@/lib/auth/staff";
+import { hireIdOk } from "@/lib/auth/hire-token";
 import type {
   Candidate,
   InterviewSession,
@@ -46,7 +47,7 @@ export async function saveJobAction(
     return { ok: false, reason: "아직 채우지 않은 항목이 있습니다." };
   }
   try {
-    const pid = typeof hirePositionId === "string" && /^[w-]{1,40}$/.test(hirePositionId) ? hirePositionId : undefined;
+    const pid = hireIdOk(hirePositionId) ? hirePositionId : undefined;
     return { ok: true, id: await createJob(job, staff.name, pid) };
   } catch {
     return { ok: false, reason: "저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요." };
