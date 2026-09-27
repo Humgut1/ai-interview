@@ -1,11 +1,13 @@
 "use server";
 
+import { after } from "next/server";
 import {
   answerInterview,
   beginTake,
   candidateRequest,
   prepareUpload,
   submitVideoAnswer,
+  sttSweep,
   createJob,
   handleRequest,
   issueInterview,
@@ -185,7 +187,10 @@ export async function submitVideoAction(
     return { ok: false, reason: "error" };
   }
   try {
-    return await submitVideoAnswer(token, seen, path, seconds);
+    const result = await submitVideoAnswer(token, seen, path, seconds);
+    // 응답을 돌려준 뒤 받아 적기를 보내고 잠시 결과를 기다린다(후보자는 기다리지 않는다)
+    if (result.ok) after(() => sttSweep({ token, waitMs: 45_000 }).catch(() => {}));
+    return result;
   } catch {
     return { ok: false, reason: "error" };
   }

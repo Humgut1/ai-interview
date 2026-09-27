@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { db } from "@/lib/db";
+import { db, isStoreConfigured } from "@/lib/db";
+import { STT_VENDOR, sttPoll, sttReady, sttSubmit } from "@/lib/stt";
 import {
   appendAnswer,
   applyDecision,
@@ -22,6 +23,7 @@ import type {
   QuestionScore,
   RecruiterReview,
   ReviewStatus,
+  SttSegment,
 } from "@/lib/types";
 import { cleanVideoRules } from "@/lib/types";
 
@@ -259,6 +261,7 @@ function toMessage(row: any): ChatMessage {
         }
       : {}),
     ...(row.stt_status ? { stt: row.stt_status } : {}),
+    ...(row.stt_error ? { sttNote: row.stt_error } : {}),
   };
 }
 
@@ -564,6 +567,154 @@ async function removeMedia(interviewId: string) {
   }
 }
 
+/* ── 받아 적기 (SC7) ───────────────────────────── */
+
+/** 한 답변을 이만큼 보내 보고도 안 되면 '실패'로 두고 담당자가 영상을 직접 본다 */
+const STT_MAX_TRIES = 3;
+/** 보내는 중이라고 표시만 남기고 서버가 꺼진 경우, 이만큼 지나면 다른 쪽이 다시 맡는다 */
+const STT_CLAIM_MS = 10 * 60_000;
+/** 서비스가 이만큼 넘게 '받아 적는 중'이면 다시 보낸다 */
+const STT_STUCK_MS = 60 * 60_000;
+/** 작업 상태 확인 간격(리턴제로 권장 5초) */
+const STT_POLL_MS = 5_000;
+
+export type SttTally = { submitted: number; done: number; failed: number; running: number; halted: string | null };
+
+type SttRow = {
+  id: string;
+  media_path: string;
+  stt_job: string | null;
+  stt_tries: number | null;
+  stt_at: string | null;
+};
+
+async function sttUpdate(id: string, patch: Record<string, unknown>, job: string | null) {
+  let q = db().from("screen_messages").update(patch).eq("id", id).eq("stt_status", "pending");
+  q = job === null ? q.is("stt_job", null) : q.eq("stt_job", job);
+  const { data, error } = await q.select("id");
+  check(error, "받아 적기 저장");
+  return (data ?? []).length > 0;
+}
+
+/** 한 번 보내 보고 안 된 답변: 다시 보낼지, 실패로 둘지 */
+async function sttGiveUpOrRetry(row: SttRow, job: string | null, tries: number, reason: string, retry: boolean, tally: SttTally) {
+  if (!retry || tries >= STT_MAX_TRIES) {
+    await sttUpdate(row.id, { stt_status: "failed", stt_error: reason, stt_job: null, stt_tries: tries, stt_at: new Date().toISOString() }, job);
+    tally.failed++;
+  } else {
+    await sttUpdate(row.id, { stt_job: null, stt_error: reason, stt_tries: tries }, job);
+    tally.running++;
+  }
+}
+
+async function sttSend(row: SttRow, tally: SttTally) {
+  const age = row.stt_at ? Date.now() - new Date(row.stt_at).getTime() : Infinity;
+  if (row.stt_job && age < STT_CLAIM_MS) {
+    tally.running++; // 다른 요청이 지금 보내는 중
+    return;
+  }
+  // 먼저 '보내는 중'으로 표시해서 두 곳이 같은 답변을 두 번 보내지 않게 한다
+  const claim = `@${hex(4)}`;
+  const now = new Date().toISOString();
+  if (!(await sttUpdate(row.id, { stt_job: claim, stt_at: now }, row.stt_job))) return;
+  const tries = (row.stt_tries ?? 0) + 1;
+
+  const { data: file, error } = await db().storage.from(VIDEO_BUCKET).download(row.media_path);
+  if (error || !file) {
+    const gone = /not.?found|404|object/i.test(error?.message ?? "");
+    await sttGiveUpOrRetry(row, claim, tries, gone ? "녹화 파일을 찾지 못함" : "녹화 파일을 읽지 못함", !gone, tally);
+    return;
+  }
+  const sent = await sttSubmit(file, row.media_path.split("/").pop() ?? "answer.mp4");
+  if (sent.ok) {
+    await sttUpdate(row.id, { stt_job: sent.job, stt_tries: tries, stt_at: new Date().toISOString(), stt_error: null }, claim);
+    tally.submitted++;
+    tally.running++;
+    return;
+  }
+  if (sent.halt) {
+    // 키·서비스 문제 — 이 답변 탓이 아니므로 횟수를 안 쓰고 되돌린 뒤 이번 차례를 멈춘다
+    await sttUpdate(row.id, { stt_job: null, stt_error: sent.reason }, claim);
+    tally.halted = sent.reason;
+    return;
+  }
+  await sttGiveUpOrRetry(row, claim, tries, sent.reason, sent.retry, tally);
+}
+
+async function sttCheck(row: SttRow, tally: SttTally) {
+  const job = row.stt_job!;
+  const polled = await sttPoll(job);
+  const tries = row.stt_tries ?? 1;
+  if (polled.state === "running") {
+    const age = row.stt_at ? Date.now() - new Date(row.stt_at).getTime() : 0;
+    if (age > STT_STUCK_MS) await sttGiveUpOrRetry(row, job, tries, "받아 적기가 너무 오래 걸림", true, tally);
+    else tally.running++;
+    return;
+  }
+  if (polled.state === "failed") {
+    await sttGiveUpOrRetry(row, job, tries, polled.reason, true, tally);
+    return;
+  }
+  const saved = await sttUpdate(
+    row.id,
+    {
+      text: polled.text.slice(0, MAX_ANSWER_CHARS * 2),
+      stt_segments: polled.segments,
+      stt_status: "done",
+      stt_error: polled.text ? null : "말소리를 찾지 못함",
+      stt_at: new Date().toISOString(),
+    },
+    job
+  );
+  if (saved) tally.done++;
+}
+
+async function sttRound(interviewId: string | undefined, tally: SttTally) {
+  let q = db()
+    .from("screen_messages")
+    .select("id, media_path, stt_job, stt_tries, stt_at")
+    .eq("stt_status", "pending")
+    .not("media_path", "is", null)
+    .order("at", { ascending: true })
+    .limit(20);
+  if (interviewId) q = q.eq("interview_id", interviewId);
+  const { data, error } = await q;
+  check(error, "받아 적기 대기 조회");
+  for (const row of (data ?? []) as SttRow[]) {
+    if (tally.halted) break;
+    if (!row.stt_job || row.stt_job.startsWith("@")) await sttSend(row, tally);
+    else await sttCheck(row, tally);
+  }
+}
+
+/**
+ * 받아 적기 대기 중인 영상 답변을 보내고, 보낸 것은 결과를 받아 대화 기록(text)에 적는다.
+ * 부르는 곳: 영상 답변 제출 직후(응답 뒤에, 최대 waitMs 동안 결과를 기다림) · 담당자 화면을 열 때 · 매일 한 번.
+ * 여러 곳에서 동시에 불러도 한 답변은 한 번만 보낸다. 키가 없으면 아무것도 안 한다.
+ */
+export async function sttSweep(opts: { interviewId?: string; token?: string; waitMs?: number } = {}): Promise<SttTally> {
+  const tally: SttTally = { submitted: 0, done: 0, failed: 0, running: 0, halted: null };
+  if (!sttReady() || !isStoreConfigured()) return tally;
+  let interviewId = opts.interviewId;
+  if (opts.token) {
+    const found = await loadByToken(opts.token);
+    if (!found) return tally;
+    interviewId = found.row.id;
+  }
+  const until = Date.now() + (opts.waitMs ?? 0);
+  for (;;) {
+    tally.running = 0;
+    await sttRound(interviewId, tally);
+    if (tally.halted || tally.running === 0 || Date.now() + STT_POLL_MS > until) return tally;
+    await new Promise((r) => setTimeout(r, STT_POLL_MS));
+  }
+}
+
+/** 담당자 화면이 '미연결'과 '대기'를 구분해 보여 주려고 */
+export function isSttReady() {
+  return sttReady();
+}
+
 /* ── 담당자 리포트 ───────────────────────────── */
 
 function toScore(row: any): QuestionScore {
@@ -632,7 +783,10 @@ export async function getReport(id: string): Promise<ReportBundle | null> {
       summary: row.ai_summary ?? "",
       questions: job.questions,
       scores: (row.screen_scores ?? []).map(toScore),
-      transcript: (msgs ?? []).map(toMessage),
+      transcript: (msgs ?? []).map((m) => ({
+        ...toMessage(m),
+        ...(Array.isArray(m.stt_segments) ? { segments: m.stt_segments as SttSegment[] } : {}),
+      })),
     },
     review: {
       overrides: reviewRow?.overrides ?? {},
@@ -884,6 +1038,8 @@ export interface CandidateRights {
   retentionDays: number;
   /** 해외(Anthropic) AI 가 답변을 처리하는지 — 키가 연결됐을 때만 안내한다 */
   aiAbroad: boolean;
+  /** 영상 말소리를 글로 받아 적는 업체 — 연결됐을 때만 안내한다 */
+  sttVendor: string | null;
   optedOut: boolean;
   open: RequestKind[];
 }
@@ -896,6 +1052,7 @@ async function rightsOf(row: any): Promise<CandidateRights> {
   return {
     retentionDays,
     aiAbroad: Boolean(process.env.ANTHROPIC_API_KEY),
+    sttVendor: sttReady() ? STT_VENDOR : null,
     optedOut: Boolean(row.opted_out_at),
     open: requests.error ? [] : (requests.data ?? []).map((r: any) => r.kind as RequestKind),
   };

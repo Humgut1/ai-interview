@@ -51,6 +51,9 @@ function dataRows(rights: CandidateRights, video: boolean): [string, string][] {
         ? "받아 적은 답변 내용을 미리 정한 기준에 따라 보고 점수와 근거 문장을 제안합니다. 표정·목소리 톤·외모는 보지 않습니다. 합격 여부는 채용 담당자가 답변을 보고 결정합니다."
         : "미리 정한 기준에 따라 점수와 근거 문장을 제안합니다. 합격 여부는 채용 담당자가 답변을 읽고 결정합니다.",
     ],
+    ...(video && rights.sttVendor
+      ? ([["받아 적기 위탁", `영상의 말소리를 글로 받아 적는 일은 국내 업체 ${rights.sttVendor}에 맡깁니다. 받아 적은 글은 이 채용 전형에만 씁니다.`]] as [string, string][])
+      : []),
     ...(rights.aiAbroad
       ? ([["국외 처리", "평가 보조를 위해 답변이 미국 Anthropic 의 AI 서버에서 처리됩니다. 학습에는 쓰이지 않습니다."]] as [string, string][])
       : []),

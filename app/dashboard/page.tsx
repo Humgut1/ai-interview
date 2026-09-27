@@ -4,7 +4,8 @@ import { btnPrimary, cardClass, labelClass, panelClass } from "@/components/ui/s
 import { countStages } from "@/lib/candidates";
 import { StoreMissing } from "@/components/ui/Notice";
 import { isStoreConfigured } from "@/lib/db";
-import { listJobs, openRequestCount, purgeExpired } from "@/lib/store";
+import { after } from "next/server";
+import { listJobs, openRequestCount, purgeExpired, sttSweep } from "@/lib/store";
 import { requireStaff } from "@/lib/auth/staff";
 
 export const metadata = {
@@ -31,6 +32,8 @@ export default async function DashboardPage() {
   try {
     await purgeExpired();
   } catch {}
+  // 받아 적기가 밀린 답변도 이때 보낸다(화면은 기다리지 않는다)
+  after(() => sttSweep().catch(() => {}));
   const requests = await openRequestCount();
 
   const rows = (await listJobs()).map(({ job, candidates }) => ({

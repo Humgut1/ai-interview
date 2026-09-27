@@ -131,7 +131,14 @@ export type ChatMessage = {
   };
   /** 받아 적기 상태 — 영상 답변에만 */
   stt?: "pending" | "done" | "failed";
+  /** 받아 적기 실패 사유·멈춘 사유("말소리를 찾지 못함" 등) — 담당자에게만 보인다 */
+  sttNote?: string;
+  /** 받아 적은 말 토막별 영상 안 시각 — 담당자 리포트에만 (SC8 영상 넘기기용) */
+  segments?: SttSegment[];
 };
+
+/** 받아 적은 말 한 토막. s·e = 영상 안 초, t = 글 */
+export type SttSegment = { s: number; e: number; t: string };
 
 export type InterviewPhase = "consent" | "chat" | "done";
 

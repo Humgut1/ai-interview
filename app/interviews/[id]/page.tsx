@@ -1,7 +1,8 @@
 import ReportView from "@/components/review/ReportView";
 import Notice, { StoreMissing } from "@/components/ui/Notice";
 import { isStoreConfigured } from "@/lib/db";
-import { getReport } from "@/lib/store";
+import { after } from "next/server";
+import { getReport, isSttReady, sttSweep } from "@/lib/store";
 import { requireStaff } from "@/lib/auth/staff";
 
 export const metadata = {
@@ -22,6 +23,10 @@ export default async function InterviewReportPage({
   if (!isStoreConfigured()) return <StoreMissing />;
 
   const bundle = await getReport(id);
+  // 받아 적기 대기 중인 답변이 있으면 화면을 돌려준 뒤 보낸다/확인한다. 화면은 스스로 새로고침해 결과를 받는다.
+  if (bundle?.report.transcript.some((m) => m.stt === "pending")) {
+    after(() => sttSweep({ interviewId: id }).catch(() => {}));
+  }
   if (!bundle) {
     return (
       <Notice
@@ -41,6 +46,7 @@ export default async function InterviewReportPage({
       initialStatus={bundle.status}
       who={staff.name}
       requests={bundle.requests}
+      sttReady={isSttReady()}
     />
   );
 }

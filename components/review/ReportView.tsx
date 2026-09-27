@@ -42,6 +42,7 @@ export default function ReportView({
   initialStatus,
   who,
   requests = [],
+  sttReady = false,
 }: {
   report: InterviewReport;
   candidates: CandidateRow[];
@@ -50,6 +51,8 @@ export default function ReportView({
   who?: string;
   /** 처리 안 된 후보자 요청 — 있으면 맨 위에 띠로 알린다 */
   requests?: ScreenRequest[];
+  /** 받아 적기 서비스 키가 있는지 — 없으면 '대기' 대신 '미연결'로 보인다 */
+  sttReady?: boolean;
 }) {
   const [review, setReview] = useState<RecruiterReview>(initialReview);
   const [status, setStatus] = useState<ReviewStatus>(initialStatus);
@@ -244,7 +247,7 @@ export default function ReportView({
             })}
 
             <section id="transcript" className="scroll-mt-20">
-              <TranscriptView transcript={report.transcript} />
+              <TranscriptView transcript={report.transcript} sttReady={sttReady} />
             </section>
           </div>
 
