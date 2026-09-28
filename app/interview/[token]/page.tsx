@@ -9,6 +9,23 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
+/** 마감 시각 — 한국 시간 "10/11(토) 23:59". */
+function deadlineLabel(iso: string) {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("month")}/${get("day")}(${get("weekday")}) ${get("hour")}:${get("minute")}`;
+}
+
 /**
  * 후보자용 화면. 로그인 없이 링크(토큰)만으로 들어온다.
  * 진행 기록은 서버에 있으므로 다른 기기에서 같은 링크를 열어도 이어서 한다.
@@ -58,6 +75,12 @@ export default async function InterviewPage({
   }
 
   return (
-    <ChatWindow setup={found.setup} initialSession={found.session} initialRights={found.rights} />
+    <ChatWindow
+      setup={found.setup}
+      initialSession={found.session}
+      initialRights={found.rights}
+      org={process.env.ORG_NAME ? `${process.env.ORG_NAME} 채용` : "채용 면접"}
+      deadline={deadlineLabel(found.expiresAt)}
+    />
   );
 }

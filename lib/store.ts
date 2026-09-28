@@ -1206,7 +1206,7 @@ async function rightsOf(row: any): Promise<CandidateRights> {
 }
 
 export type CandidatePage =
-  | { state: "ok"; setup: InterviewSetup; session: InterviewSession; rights: CandidateRights }
+  | { state: "ok"; setup: InterviewSetup; session: InterviewSession; rights: CandidateRights; expiresAt: string }
   | { state: "missing" }
   | { state: "expired" }
   | { state: "purged" };
@@ -1224,7 +1224,7 @@ export async function candidatePage(token: string): Promise<CandidatePage> {
   ) {
     return { state: "expired" };
   }
-  return { state: "ok", setup: found.setup, session: found.session, rights };
+  return { state: "ok", setup: found.setup, session: found.session, rights, expiresAt: found.row.expires_at };
 }
 
 export type RequestResult =

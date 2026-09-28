@@ -48,12 +48,15 @@ export default function RequestBox({
   kinds,
   onRights,
   title = "요청하기",
+  bare = false,
 }: {
   token: string;
   rights: CandidateRights;
   kinds: RequestKind[];
   onRights: (rights: CandidateRights) => void;
   title?: string;
+  /** 다른 카드 안에 넣을 때 — 테두리 없이 위 선만 */
+  bare?: boolean;
 }) {
   const [asking, setAsking] = useState<RequestKind | null>(null);
   const [note, setNote] = useState("");
@@ -82,7 +85,7 @@ export default function RequestBox({
   }
 
   return (
-    <section className={`${cardClass} mt-4 px-5 py-4`}>
+    <section className={bare ? "mt-4 border-t border-line pt-4" : `${cardClass} mt-4 px-5 py-4`}>
       <h2 className={labelClass}>{title}</h2>
       <ul className="mt-3 flex flex-col gap-3">
         {kinds.map((kind) => {

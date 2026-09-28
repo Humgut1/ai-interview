@@ -1,16 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import ProgressBar from "@/components/interview/ProgressBar";
-import RequestBox from "@/components/interview/RequestBox";
-import { btnPrimary, btnSecondary, cardClass, labelClass, panelClass } from "@/components/ui/styles";
+import CandidateTop, { type TopStep } from "@/components/interview/CandidateTop";
+import { clock } from "@/components/interview/ConsentScreen";
+import { btnPrimary, btnSecondary } from "@/components/ui/styles";
 import { beginTakeAction, prepareUploadAction, submitVideoAction } from "@/app/actions";
 import { progressOf } from "@/lib/interview";
 import type { CandidateRights } from "@/lib/store";
 import type { InterviewSession, InterviewSetup } from "@/lib/types";
 
 /*
- * 영상 면접 화면. 기기 확인 → (질문마다) 준비 → 녹화 → 다시 보기 → 보내기.
+ * 영상 면접 화면. 기기 확인(C3) → (질문마다) 준비 → 녹화 → 다시 보기 → 보내기(C5).
  * 녹화 파일은 브라우저가 Supabase 저장 칸으로 바로 올리고, 서버에는 "어디에 올렸는지"만 알린다.
  * 진행 기록의 원본은 서버다. 새로고침하면 기기 확인부터 다시 하고 같은 질문에서 이어진다.
  */
@@ -18,6 +18,8 @@ import type { InterviewSession, InterviewSetup } from "@/lib/types";
 type Step = "check" | "prep" | "rec" | "review" | "upload";
 
 type Take = { blob: Blob; url: string; seconds: number; type: string; take: number };
+
+type Dev = { id: string; label: string };
 
 /** 녹화 형식 — 되는 것 중 앞에 있는 것. mp4 가 되면 담당자가 어느 브라우저로 봐도 재생된다. */
 const RECORD_TYPES = [
@@ -31,11 +33,6 @@ const RECORD_TYPES = [
 function pickType() {
   if (typeof MediaRecorder === "undefined") return null;
   return RECORD_TYPES.find((type) => MediaRecorder.isTypeSupported(type)) ?? null;
-}
-
-function clock(total: number) {
-  const s = Math.max(0, Math.floor(total));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 function deviceError(error: unknown) {
@@ -80,6 +77,21 @@ function putVideo(url: string, blob: Blob, onProgress: (percent: number) => void
   });
 }
 
+/** 상태 점 + 글. 색은 상태에만. */
+function Status({ tone, children }: { tone: "ok" | "warn" | "bad" | "off"; children: React.ReactNode }) {
+  const dot = { ok: "bg-st-ok", warn: "bg-st-warn", bad: "bg-st-bad", off: "bg-st-off" }[tone];
+  const ink = { ok: "text-st-ok-ink", warn: "text-st-warn-ink", bad: "text-st-bad", off: "text-ink-3" }[tone];
+  return (
+    <span className={`flex items-center gap-1.5 text-[13px] ${ink}`}>
+      <span aria-hidden className={`h-[7px] w-[7px] rounded-full ${dot}`} />
+      {children}
+    </span>
+  );
+}
+
+const selectClass =
+  "mt-2.5 h-9 w-full rounded-md border border-line-strong bg-surface px-2.5 text-[13px] text-ink disabled:text-ink-3";
+
 export default function VideoInterview({
   setup,
   session,
@@ -97,8 +109,13 @@ export default function VideoInterview({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [deviceMsg, setDeviceMsg] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
+  const [cams, setCams] = useState<Dev[]>([]);
+  const [mics, setMics] = useState<Dev[]>([]);
+  const [camId, setCamId] = useState("");
+  const [micId, setMicId] = useState("");
   const [level, setLevel] = useState(0);
   const [heard, setHeard] = useState(false);
+  const [light, setLight] = useState<"ok" | "dark" | null>(null);
   const [left, setLeft] = useState(setup.video.prepSec);
   const [elapsed, setElapsed] = useState(0);
   const [take, setTake] = useState<Take | null>(null);
@@ -113,12 +130,14 @@ export default function VideoInterview({
   // 두 번 눌러도 한 번만. state 는 다음 그리기 전까지 안 바뀌므로 ref 로 막는다.
   const lock = useRef(false);
   const streamRef = useRef<MediaStream | null>(null);
+  const autoOpened = useRef(false);
 
   const seen = session.messages.length;
   const prompt = session.messages[seen - 1];
   const progress = progressOf(session, setup);
   const maxTakes = 1 + setup.video.retakes;
-  const recordType = typeof window === "undefined" ? null : pickType();
+  const [recordType] = useState(() => (typeof window === "undefined" ? null : pickType()));
+  const total = setup.questions.length;
 
   // 화면 밖으로 나가면 카메라를 끈다.
   useEffect(() => {
@@ -160,6 +179,25 @@ export default function VideoInterview({
     };
   }, [stream, step]);
 
+  // 밝기 — 1초마다 작은 캔버스에 한 장 그려 평균 밝기만 본다. 평가와 무관, 안내용.
+  useEffect(() => {
+    if (!stream || step !== "check") return;
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 24;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const timer = setInterval(() => {
+      const video = liveRef.current;
+      if (!ctx || !video || video.readyState < 2) return;
+      ctx.drawImage(video, 0, 0, 32, 24);
+      const px = ctx.getImageData(0, 0, 32, 24).data;
+      let sum = 0;
+      for (let i = 0; i < px.length; i += 4) sum += 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+      setLight(sum / (px.length / 4) < 60 ? "dark" : "ok");
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [stream, step]);
+
   // 녹화 중·보내기 전에 창을 닫으려 하면 한 번 묻는다.
   useEffect(() => {
     if (step !== "rec" && step !== "review" && step !== "upload") return;
@@ -182,37 +220,74 @@ export default function VideoInterview({
     }
   }
 
-  async function openDevices() {
-    if (opening) return;
-    setDeviceMsg(null);
-    if (!navigator.mediaDevices?.getUserMedia || !recordType) {
-      setDeviceMsg("이 브라우저에서는 녹화할 수 없습니다. 크롬·사파리·엣지 최신판으로 열어 주세요.");
-      return;
-    }
-    setOpening(true);
-    try {
-      const media = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
-        audio: { echoCancellation: true, noiseSuppression: true },
-      });
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = media;
-      // 면접 중 카메라가 빠지면(선 뽑힘 등) 기기 확인으로 돌아간다.
-      media.getTracks().forEach((track) =>
-        track.addEventListener("ended", () => {
-          if (recorder.current?.state === "recording") recorder.current.stop();
-          setStream(null);
-          setStep("check");
-          setDeviceMsg("카메라나 마이크 연결이 끊겼습니다. 다시 켜 주세요.");
-        })
-      );
-      setStream(media);
-    } catch (error) {
-      setDeviceMsg(deviceError(error));
-    } finally {
-      setOpening(false);
-    }
-  }
+  const openDevices = useCallback(
+    async (want?: { cam?: string; mic?: string }) => {
+      setDeviceMsg(null);
+      if (!navigator.mediaDevices?.getUserMedia || !recordType) {
+        setDeviceMsg("이 브라우저에서는 녹화할 수 없습니다. 크롬·사파리·엣지 최신판으로 열어 주세요.");
+        return;
+      }
+      setOpening(true);
+      try {
+        // 기기를 바꿀 때는 먼저 끄고 연다 — 일부 카메라는 두 곳에서 동시에 못 연다.
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        const media = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            ...(want?.cam ? { deviceId: { exact: want.cam } } : { facingMode: "user" }),
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            ...(want?.mic ? { deviceId: { exact: want.mic } } : {}),
+          },
+        });
+        streamRef.current = media;
+        // 면접 중 카메라가 빠지면(선 뽑힘 등) 기기 확인으로 돌아간다. 우리가 바꾸느라 끈 것은 무시.
+        media.getTracks().forEach((track) =>
+          track.addEventListener("ended", () => {
+            if (streamRef.current !== media) return;
+            if (recorder.current?.state === "recording") recorder.current.stop();
+            setStream(null);
+            setStep("check");
+            setDeviceMsg("카메라나 마이크 연결이 끊겼습니다. 다시 켜 주세요.");
+          })
+        );
+        setStream(media);
+        setHeard(false);
+        setLight(null);
+        setCamId(media.getVideoTracks()[0]?.getSettings().deviceId || want?.cam || "");
+        setMicId(media.getAudioTracks()[0]?.getSettings().deviceId || want?.mic || "");
+        // 기기 이름은 허락을 받은 뒤에야 보인다.
+        const all = await navigator.mediaDevices.enumerateDevices();
+        const named = (kind: MediaDeviceKind, word: string) =>
+          all
+            .filter((d) => d.kind === kind && d.deviceId)
+            .map((d, i) => ({ id: d.deviceId, label: d.label || `${word} ${i + 1}` }));
+        setCams(named("videoinput", "카메라"));
+        setMics(named("audioinput", "마이크"));
+      } catch (error) {
+        streamRef.current = null;
+        setStream(null);
+        setDeviceMsg(deviceError(error));
+      } finally {
+        setOpening(false);
+      }
+    },
+    [recordType]
+  );
+
+  // 동의하고 들어오면 바로 카메라를 켠다(허락 창이 한 번 뜬다).
+  // 타이머로 미루는 것은 개발 모드의 두 번 실행에서 한 번만 열리게 하려는 것.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (autoOpened.current) return;
+      autoOpened.current = true;
+      void openDevices();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [openDevices]);
 
   const startRecording = useCallback(async () => {
     if (lock.current || !stream || !recordType) return;
@@ -335,13 +410,19 @@ export default function VideoInterview({
     }
   }
 
-  const header = (
-    <header className="shrink-0 border-b border-line bg-surface px-4 py-3">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-2.5">
-        <p className="truncate text-sm font-semibold text-ink">{setup.jobTitle} · 1차 영상 면접</p>
-        <ProgressBar current={progress.current} total={progress.total} percent={progress.percent} />
-      </div>
-    </header>
+  const checking = step === "check";
+  const steps: TopStep[] = [
+    { label: "기기 확인", done: !checking, on: checking },
+    { label: `실전 ${progress.current} / ${total}`, on: !checking },
+  ];
+  const top = (
+    <CandidateTop
+      title={`${setup.jobTitle} · 1차 영상 면접`}
+      steps={steps}
+      setup={setup}
+      rights={rights}
+      onRights={onRights}
+    />
   );
 
   const live = (
@@ -351,201 +432,276 @@ export default function VideoInterview({
       muted
       playsInline
       aria-label="내 카메라 화면"
-      className={`aspect-[4/3] w-full -scale-x-100 rounded-md bg-black object-cover ${
+      className={`absolute inset-0 h-full w-full -scale-x-100 object-cover ${
         step === "review" || step === "upload" || !stream ? "hidden" : ""
       }`}
     />
   );
 
-  if (step === "check") {
+  if (checking) {
+    const resumed = seen > 2;
+    const segs = Math.round(level * 20);
     return (
       <div className="min-h-dvh bg-canvas">
-        {header}
-        <div className="mx-auto w-full max-w-2xl px-4 py-6">
-          <p className={labelClass}>기기 확인</p>
-          <h1 className="mt-2 text-xl font-semibold text-ink">카메라와 마이크를 확인합니다</h1>
-          <p className="mt-2 text-sm leading-relaxed text-ink-2">
-            얼굴이 화면 가운데 보이는지, 말할 때 아래 막대가 움직이는지 확인해 주세요.
-          </p>
-
-          <div className="mt-5">
-            {live}
-            {stream ? null : (
-              <div className="flex aspect-[4/3] w-full items-center justify-center rounded-md border border-dashed border-line-strong bg-surface px-6 text-center text-sm text-ink-3">
-                카메라가 꺼져 있습니다
-              </div>
-            )}
-          </div>
-
-          {stream ? (
-            <div className={`${cardClass} mt-3 px-4 py-3`}>
-              <div className="flex items-center justify-between text-xs text-ink-2">
-                <span>마이크</span>
-                <span>{heard ? "소리가 들어옵니다" : "말씀해 보세요"}</span>
-              </div>
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-mute">
-                <div className="h-full rounded-full bg-ink transition-[width] duration-75" style={{ width: `${Math.round(level * 100)}%` }} />
-              </div>
+        {top}
+        <main className="mx-auto grid w-full max-w-[1200px] gap-8 px-5 py-8 md:grid-cols-[minmax(0,1fr)_380px] md:px-16">
+          <section className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight text-ink">카메라와 마이크를 확인합니다</h1>
+            <p className="mt-1.5 text-sm text-ink-2">얼굴이 점선 안에 들어오게 앉아 주세요</p>
+            <div className="relative mt-5 h-[300px] overflow-hidden rounded-[10px] bg-[#111] md:h-[470px]">
+              {live}
+              {stream ? (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute left-1/2 top-1/2 h-[62%] w-[34%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-2 border-dashed border-white/60"
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                  <p className="text-sm text-white/70">{opening ? "카메라를 켜는 중" : "카메라가 꺼져 있습니다"}</p>
+                  {opening ? null : (
+                    <button
+                      type="button"
+                      onClick={() => void openDevices()}
+                      className="h-10 rounded-md bg-white px-4 text-sm font-semibold text-[#111]"
+                    >
+                      카메라·마이크 켜기
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-          ) : null}
-
-          {deviceMsg ? (
-            <p role="alert" className="mt-3 text-sm leading-relaxed text-rose-600 dark:text-rose-400">
-              {deviceMsg}
-            </p>
-          ) : null}
-
-          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-            {stream ? (
-              <>
-                <button type="button" onClick={beginPrep} className={`${btnPrimary} py-3 sm:flex-1`}>
-                  {seen > 2 ? "이어서 진행하기" : "첫 질문 보기"}
-                </button>
-                <button type="button" onClick={openDevices} className={`${btnSecondary} py-3`}>
-                  다시 켜기
-                </button>
-              </>
-            ) : (
-              <button type="button" onClick={openDevices} disabled={opening} className={`${btnPrimary} py-3 sm:flex-1`}>
-                {opening ? "켜는 중…" : "카메라·마이크 켜기"}
-              </button>
-            )}
-          </div>
-          {stream && !heard ? (
-            <p className="mt-2 text-xs text-ink-3">막대가 움직이지 않으면 마이크 연결을 확인해 주세요.</p>
-          ) : null}
-
-          <section className={`${panelClass} mt-6 px-4 py-3.5`}>
-            <h2 className={labelClass}>녹화 규칙</h2>
-            <ul className="mt-2 flex flex-col gap-1 text-sm text-ink-2">
-              <li>질문마다 준비 {clock(setup.video.prepSec)} · 답변 최대 {clock(setup.video.answerSec)}</li>
-              <li>{setup.video.retakes > 0 ? `질문마다 ${setup.video.retakes}번 다시 찍기` : "다시 찍기 없음"}</li>
-              <li>표정·목소리 톤·배경은 평가하지 않습니다</li>
-            </ul>
+            {deviceMsg ? (
+              <p role="alert" className="mt-3 text-sm leading-relaxed text-st-bad">
+                {deviceMsg}
+              </p>
+            ) : null}
           </section>
 
-          <RequestBox
-            token={setup.token}
-            rights={rights}
-            kinds={["human"]}
-            onRights={onRights}
-            title="카메라 면접이 어려우신가요"
-          />
-        </div>
+          <aside className="md:pt-[62px]">
+            <div className="border-b border-line pb-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-ink">카메라</span>
+                {stream ? <Status tone="ok">잘 보입니다</Status> : <Status tone="off">꺼져 있음</Status>}
+              </div>
+              <select
+                aria-label="카메라 고르기"
+                value={camId}
+                disabled={!stream || opening || cams.length < 2}
+                onChange={(e) => void openDevices({ cam: e.target.value, mic: micId })}
+                className={selectClass}
+              >
+                {cams.length ? cams.map((d) => <option key={d.id} value={d.id}>{d.label}</option>) : <option value="">-</option>}
+              </select>
+            </div>
+
+            <div className="border-b border-line py-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-ink">마이크</span>
+                {!stream ? (
+                  <Status tone="off">꺼져 있음</Status>
+                ) : heard ? (
+                  <Status tone="ok">소리가 들어옵니다</Status>
+                ) : (
+                  <Status tone="off">말씀해 보세요</Status>
+                )}
+              </div>
+              <select
+                aria-label="마이크 고르기"
+                value={micId}
+                disabled={!stream || opening || mics.length < 2}
+                onChange={(e) => void openDevices({ cam: camId, mic: e.target.value })}
+                className={selectClass}
+              >
+                {mics.length ? mics.map((d) => <option key={d.id} value={d.id}>{d.label}</option>) : <option value="">-</option>}
+              </select>
+              <div className="mt-3 flex h-3 gap-[3px]" role="meter" aria-label="마이크 소리 크기" aria-valuemin={0} aria-valuemax={20} aria-valuenow={segs}>
+                {Array.from({ length: 20 }, (_, i) => (
+                  <span key={i} className={`flex-1 rounded-[2px] ${i < segs ? "bg-ink" : "bg-mute"}`} />
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-ink-3">&quot;안녕하세요&quot; 라고 말해 보세요</p>
+            </div>
+
+            <div className="border-b border-line py-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-ink">밝기</span>
+                {light === "dark" ? (
+                  <Status tone="warn">조금 어둡습니다</Status>
+                ) : light === "ok" ? (
+                  <Status tone="ok">괜찮습니다</Status>
+                ) : (
+                  <Status tone="off">확인 중</Status>
+                )}
+              </div>
+              <p className="mt-1.5 text-xs text-ink-3">
+                {light === "dark" ? "얼굴 앞쪽에 불을 켜면 더 잘 보입니다 · " : ""}평가와는 무관
+              </p>
+            </div>
+
+            <div className="py-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-ink">녹화</span>
+                {recordType ? <Status tone="ok">이 브라우저에서 됩니다</Status> : <Status tone="bad">이 브라우저에서 안 됩니다</Status>}
+              </div>
+            </div>
+
+            <button type="button" onClick={beginPrep} disabled={!stream || opening} className={`${btnPrimary} mt-2 h-12 w-full`}>
+              {resumed ? `이어서 · 질문 ${progress.current}` : "다음 · 실전 질문"}
+            </button>
+            {stream ? (
+              <button type="button" onClick={() => void openDevices({ cam: camId, mic: micId })} disabled={opening} className="mt-2 w-full text-center text-[13px] text-ink-3 hover:text-ink">
+                카메라 다시 켜기
+              </button>
+            ) : null}
+            <p className="mt-3 text-center text-xs text-ink-3">표정·목소리 톤·배경은 평가하지 않습니다</p>
+          </aside>
+        </main>
       </div>
     );
   }
 
-  const label = prompt?.kind === "followUp" ? "추가 질문" : `질문 ${progress.current}`;
+  const followUp = prompt?.kind === "followUp";
   const takesLeft = take ? Math.max(0, maxTakes - take.take) : 0;
+  const nowNote =
+    step === "prep" ? "준비 중" : step === "rec" ? "녹화 중" : step === "review" ? "다시 보는 중" : "보내는 중";
 
   return (
     <div className="min-h-dvh bg-canvas">
-      {header}
-      <div className="mx-auto w-full max-w-2xl px-4 py-5">
-        <section className={`${cardClass} px-4 py-4`}>
-          <p className={labelClass}>{label}</p>
-          <p className="mt-2 text-base leading-relaxed text-ink">{prompt?.text}</p>
-        </section>
+      {top}
+      <main className="mx-auto grid w-full max-w-[1200px] gap-8 px-5 py-7 md:grid-cols-[240px_minmax(0,1fr)] md:px-16">
+        <nav aria-label="질문 목록">
+          <ol className="flex flex-col gap-1">
+            {setup.questions.map((q, i) => {
+              const sent = i < session.questionIndex;
+              const now = i === session.questionIndex;
+              return (
+                <li
+                  key={q.id}
+                  aria-current={now ? "step" : undefined}
+                  className={`rounded-lg px-3.5 py-3 ${now ? "bg-mute" : ""}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className={`h-[7px] w-[7px] shrink-0 rounded-full ${sent ? "bg-st-ok" : now ? "bg-ink" : "bg-line-strong"}`}
+                    />
+                    <span className={`num text-sm ${now ? "font-semibold text-ink" : sent ? "text-ink" : "text-ink-3"}`}>
+                      질문 {i + 1}
+                    </span>
+                    <span className={`ml-auto text-xs ${sent ? "text-st-ok-ink" : now ? "font-semibold text-ink" : "text-ink-3"}`}>
+                      {sent ? "보냄" : now ? "지금" : ""}
+                    </span>
+                  </div>
+                  <p className="mt-1 pl-[15px] text-xs text-ink-3">
+                    {sent ? "보낸 답은 바꿀 수 없습니다" : now ? nowNote : "질문은 차례가 되면 보입니다"}
+                  </p>
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
 
-        <div className="relative mt-4">
-          {live}
-          {step === "prep" ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center rounded-md bg-black/55 text-white">
-              <span className="text-xs">녹화까지</span>
-              <span className="num mt-1 text-5xl font-semibold" aria-live="polite">
-                {left}
-              </span>
-            </div>
-          ) : null}
-          {step === "rec" ? (
-            <div className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-black/60 px-2.5 py-1 text-xs text-white">
-              <span aria-hidden className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-              <span className="num">
-                녹화 중 {clock(elapsed)} / {clock(setup.video.answerSec)}
-              </span>
-            </div>
-          ) : null}
-          {(step === "review" || step === "upload") && take ? (
-            <video
-              key={take.url}
-              src={take.url}
-              controls
-              playsInline
-              aria-label="녹화한 답변 다시 보기"
-              className="aspect-[4/3] w-full rounded-md bg-black object-contain"
-            />
-          ) : null}
-        </div>
+        <section className="min-w-0">
+          <p className="num text-[13px] text-ink-3">
+            질문 {progress.current} / {total}
+            {followUp ? " · 추가 질문" : ""}
+          </p>
+          <h1 className="mt-2 text-xl font-semibold leading-relaxed text-ink">{prompt?.text}</h1>
 
-        {step === "rec" ? (
-          <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-mute">
-            <div
-              className="h-full rounded-full bg-ink"
-              style={{ width: `${Math.min(100, (elapsed / setup.video.answerSec) * 100)}%` }}
-            />
+          <div className="relative mt-5 h-[300px] overflow-hidden rounded-[10px] bg-[#111] md:h-[400px]">
+            {live}
+            {step === "prep" ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55 text-white">
+                <span className="text-xs">녹화까지</span>
+                <span className="num mt-1 text-5xl font-semibold" aria-live="polite">
+                  {left}
+                </span>
+              </div>
+            ) : null}
+            {step === "rec" ? (
+              <div className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-black/60 px-2.5 py-1 text-xs text-white">
+                <span aria-hidden className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                <span className="num">
+                  녹화 중 {clock(elapsed)} / {clock(setup.video.answerSec)}
+                </span>
+              </div>
+            ) : null}
+            {(step === "review" || step === "upload") && take ? (
+              <video
+                key={take.url}
+                src={take.url}
+                controls
+                playsInline
+                aria-label="녹화한 답변 다시 보기"
+                className="absolute inset-0 h-full w-full object-contain"
+              />
+            ) : null}
           </div>
-        ) : null}
 
-        {failure ? (
-          <p role="alert" className="mt-3 text-sm leading-relaxed text-rose-600 dark:text-rose-400">
-            {failure}
-          </p>
-        ) : null}
-
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          {step === "prep" ? (
-            <button type="button" onClick={() => void startRecording()} className={`${btnPrimary} py-3 sm:flex-1`}>
-              지금 녹화 시작
-            </button>
-          ) : null}
           {step === "rec" ? (
-            <button
-              type="button"
-              onClick={stopRecording}
-              disabled={elapsed < 3}
-              className={`${btnPrimary} py-3 sm:flex-1`}
-            >
-              답변 끝내기
-            </button>
-          ) : null}
-          {step === "review" ? (
-            <>
-              <button type="button" onClick={send} disabled={busy} className={`${btnPrimary} py-3 sm:flex-1`}>
-                이 답변 보내기
-              </button>
-              {takesLeft > 0 ? (
-                <button type="button" onClick={beginPrep} disabled={busy} className={`${btnSecondary} py-3`}>
-                  다시 찍기 (남은 {takesLeft}번)
-                </button>
-              ) : null}
-            </>
-          ) : null}
-          {step === "upload" ? (
-            <div role="status" className={`${cardClass} flex-1 px-4 py-3`}>
-              <div className="flex justify-between text-xs text-ink-2">
-                <span>답변을 보내는 중입니다. 창을 닫지 마세요.</span>
-                <span className="num">{percent}%</span>
-              </div>
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-mute">
-                <div className="h-full rounded-full bg-ink transition-[width]" style={{ width: `${percent}%` }} />
-              </div>
+            <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-mute">
+              <div
+                className="h-full rounded-full bg-ink"
+                style={{ width: `${Math.min(100, (elapsed / setup.video.answerSec) * 100)}%` }}
+              />
             </div>
           ) : null}
-        </div>
 
-        {step === "review" ? (
-          <p className="mt-2 text-xs text-ink-3">
-            {clock(take?.seconds ?? 0)} 녹화 · 보낸 답변은 바꿀 수 없습니다
-            {takesLeft > 0 ? "" : " · 다시 찍기를 다 썼습니다"}
-          </p>
-        ) : null}
-        {step === "prep" ? (
-          <p className="mt-2 text-xs text-ink-3">
-            답변은 최대 {clock(setup.video.answerSec)}입니다. 시간이 되면 녹화가 멈춥니다.
-          </p>
-        ) : null}
-      </div>
+          {failure ? (
+            <p role="alert" className="mt-3 text-sm leading-relaxed text-st-bad">
+              {failure}
+            </p>
+          ) : null}
+
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            {step === "prep" ? (
+              <button type="button" onClick={() => void startRecording()} className={`${btnPrimary} h-12 sm:w-56`}>
+                지금 녹화 시작
+              </button>
+            ) : null}
+            {step === "rec" ? (
+              <button type="button" onClick={stopRecording} disabled={elapsed < 3} className={`${btnPrimary} h-12 sm:w-56`}>
+                답변 끝내기
+              </button>
+            ) : null}
+            {step === "review" ? (
+              <>
+                <button type="button" onClick={send} disabled={busy} className={`${btnPrimary} h-12 sm:w-56`}>
+                  이 답변 보내기
+                </button>
+                {takesLeft > 0 ? (
+                  <button type="button" onClick={beginPrep} disabled={busy} className={`${btnSecondary} h-12 sm:w-56`}>
+                    다시 찍기 (남은 {takesLeft}번)
+                  </button>
+                ) : null}
+              </>
+            ) : null}
+            {step === "upload" ? (
+              <div role="status" className="flex-1 rounded-md border border-line bg-surface px-4 py-3">
+                <div className="flex justify-between text-xs text-ink-2">
+                  <span>답변을 보내는 중입니다. 창을 닫지 마세요.</span>
+                  <span className="num">{percent}%</span>
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-mute">
+                  <div className="h-full rounded-full bg-ink transition-[width]" style={{ width: `${percent}%` }} />
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {step === "review" ? (
+            <p className="num mt-2.5 text-xs text-ink-3">
+              {clock(take?.seconds ?? 0)} 녹화 · 보낸 답변은 바꿀 수 없습니다
+              {takesLeft > 0 ? "" : " · 다시 찍기를 다 썼습니다"}
+            </p>
+          ) : null}
+          {step === "prep" ? (
+            <p className="num mt-2.5 text-xs text-ink-3">
+              답변은 최대 {clock(setup.video.answerSec)} · 시간이 되면 녹화가 멈춥니다
+            </p>
+          ) : null}
+        </section>
+      </main>
     </div>
   );
 }

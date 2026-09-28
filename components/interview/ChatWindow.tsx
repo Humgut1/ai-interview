@@ -6,6 +6,7 @@ import CompleteScreen from "@/components/interview/CompleteScreen";
 import ConsentScreen from "@/components/interview/ConsentScreen";
 import MessageBubble from "@/components/interview/MessageBubble";
 import OptedOutScreen from "@/components/interview/OptedOutScreen";
+import PhoneGate from "@/components/interview/PhoneGate";
 import ProgressBar from "@/components/interview/ProgressBar";
 import VideoInterview from "@/components/interview/VideoInterview";
 import { answerAction, startInterviewAction, type CandidateReply } from "@/app/actions";
@@ -25,10 +26,14 @@ export default function ChatWindow({
   setup,
   initialSession,
   initialRights,
+  org,
+  deadline,
 }: {
   setup: InterviewSetup;
   initialSession: InterviewSession;
   initialRights: CandidateRights;
+  org: string;
+  deadline: string | null;
 }) {
   // 진행 기록의 원본은 서버다. 창을 닫았다 다시 열거나 다른 기기에서 열어도 같은 곳에서 이어진다.
   const [session, setSession] = useState(initialSession);
@@ -41,6 +46,17 @@ export default function ChatWindow({
   const bottomRef = useRef<HTMLDivElement>(null);
   // 두 번 눌러도 한 번만 보낸다. state 는 다음 그리기 전까지 안 바뀌므로 ref 로 막는다.
   const sending = useRef(false);
+  // 폰·좁은 화면 여부 — 서버에서는 모르므로 붙은 뒤에 정한다(null = 아직 모름).
+  const [phone, setPhone] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const narrow = window.matchMedia("(max-width: 767px)");
+    const touch = window.matchMedia("(hover: none) and (pointer: coarse)");
+    const check = () => setPhone(narrow.matches || (touch.matches && navigator.maxTouchPoints > 0));
+    check();
+    narrow.addEventListener("change", check);
+    return () => narrow.removeEventListener("change", check);
+  }, []);
 
   const thinking = pendingAnswer !== null;
   const progress = progressOf(session, setup);
@@ -105,21 +121,26 @@ export default function ChatWindow({
     return <OptedOutScreen setup={setup} rights={rights} onRights={setRights} />;
   }
 
+  // 영상 면접은 PC 에서만. 폰이면 시작하지 않고 링크 복사만 안내한다.
+  if (setup.mode === "video" && session.phase !== "done") {
+    if (phone === null) return <div className="min-h-dvh bg-canvas" />;
+    if (phone) {
+      return <PhoneGate setup={setup} deadline={deadline} org={org} rights={rights} onRights={setRights} />;
+    }
+  }
+
   if (session.phase === "consent") {
     return (
-      <>
-        <ConsentScreen
-          setup={setup}
-          rights={rights}
-          onRights={setRights}
-          onStart={handleStart}
-        />
-        {failure ? (
-          <p role="alert" className="mx-auto mb-10 w-full max-w-2xl px-5 text-sm text-rose-600 dark:text-rose-400">
-            {failure}
-          </p>
-        ) : null}
-      </>
+      <ConsentScreen
+        setup={setup}
+        rights={rights}
+        onRights={setRights}
+        onStart={handleStart}
+        org={org}
+        deadline={deadline}
+        busy={starting}
+        failure={failure}
+      />
     );
   }
 
