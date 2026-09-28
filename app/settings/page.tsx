@@ -1,13 +1,13 @@
 import RetentionForm from "@/components/requests/RetentionForm";
 import { StoreMissing } from "@/components/ui/Notice";
-import TopBar from "@/components/ui/TopBar";
-import { cardClass, labelClass } from "@/components/ui/styles";
+import StaffShell from "@/components/ui/StaffShell";
+import { cardClass } from "@/components/ui/styles";
 import { requireStaff } from "@/lib/auth/staff";
 import { isStoreConfigured } from "@/lib/db";
 import { getRetentionDays } from "@/lib/store";
 
 export const metadata = {
-  title: "설정 · AI 면접",
+  title: "설정 · Screen",
 };
 
 export const dynamic = "force-dynamic";
@@ -19,12 +19,10 @@ export default async function SettingsPage() {
   const days = await getRetentionDays();
 
   return (
-    <div className="min-h-dvh">
-      <TopBar current="설정" who={staff.name} />
+    <StaffShell current="settings" who={staff.name}>
       <main className="mx-auto w-full max-w-[720px] px-4 pb-20 lg:px-6">
         <div className="py-6">
-          <p className={labelClass}>담당자 화면</p>
-          <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-ink">설정</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">설정</h1>
         </div>
         <section className={`${cardClass} px-5 py-4`}>
           <h2 className="text-sm font-semibold text-ink">면접 기록 보관 기간</h2>
@@ -35,6 +33,6 @@ export default async function SettingsPage() {
           <RetentionForm initial={days} editable={staff.role === "admin"} />
         </section>
       </main>
-    </div>
+    </StaffShell>
   );
 }

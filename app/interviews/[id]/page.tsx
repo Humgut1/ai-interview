@@ -1,20 +1,19 @@
-import ReportView from "@/components/review/ReportView";
+import ReviewPlayer from "@/components/review/ReviewPlayer";
+import StaffShell from "@/components/ui/StaffShell";
 import Notice, { StoreMissing } from "@/components/ui/Notice";
 import { isStoreConfigured } from "@/lib/db";
 import { after } from "next/server";
 import { getReport, isSttReady, sttSweep } from "@/lib/store";
+import { hireBase } from "@/lib/candidates";
 import { requireStaff } from "@/lib/auth/staff";
 
 export const metadata = {
-  title: "면접 결과 리포트 · AI 면접",
+  title: "면접 확인 · Screen",
 };
 
 export const dynamic = "force-dynamic";
 
-/**
- * 담당자용 결과 리포트. 제출을 마친 면접만 열린다.
- * 로그인 확인은 SC4(TalentCore 계정)에서 붙인다. 후보자는 이 화면을 볼 수 없다.
- */
+/** 담당자용 면접 확인. 제출을 마친 면접만 열린다. 후보자는 이 화면을 볼 수 없다. */
 export default async function InterviewReportPage({
   params,
 }: PageProps<"/interviews/[id]">) {
@@ -30,8 +29,8 @@ export default async function InterviewReportPage({
   if (!bundle) {
     return (
       <Notice
-        label="리포트"
-        title="볼 수 있는 리포트가 없습니다"
+        label="면접"
+        title="볼 수 있는 면접이 없습니다"
         body="아직 제출하지 않은 면접이거나 없는 주소입니다."
         home
       />
@@ -39,14 +38,16 @@ export default async function InterviewReportPage({
   }
 
   return (
-    <ReportView
-      report={bundle.report}
-      candidates={bundle.candidates}
-      initialReview={bundle.review}
-      initialStatus={bundle.status}
-      who={staff.name}
-      requests={bundle.requests}
-      sttReady={isSttReady()}
-    />
+    <StaffShell current="jobs" who={staff.name} rail>
+      <ReviewPlayer
+        report={bundle.report}
+        candidates={bundle.candidates}
+        initialReview={bundle.review}
+        initialStatus={bundle.status}
+        requests={bundle.requests}
+        sttReady={isSttReady()}
+        hireUrl={hireBase()}
+      />
+    </StaffShell>
   );
 }

@@ -1,29 +1,21 @@
 import Link from "next/link";
-import TopBar from "@/components/ui/TopBar";
-import { btnPrimary, cardClass, labelClass, panelClass } from "@/components/ui/styles";
-import { countStages } from "@/lib/candidates";
+import { after } from "next/server";
+import StaffShell from "@/components/ui/StaffShell";
+import JobsTable from "@/components/jobs/JobsTable";
+import { btnPrimary } from "@/components/ui/styles";
+import { countStages, hireBase } from "@/lib/candidates";
 import { StoreMissing } from "@/components/ui/Notice";
 import { isStoreConfigured } from "@/lib/db";
-import { after } from "next/server";
-import { listJobs, openRequestCount, purgeExpired, sttSweep } from "@/lib/store";
+import { listJobs, purgeExpired, sttSweep } from "@/lib/store";
 import { requireStaff } from "@/lib/auth/staff";
 
 export const metadata = {
-  title: "대시보드 · AI 면접",
+  title: "공고 · Screen",
 };
 
 export const dynamic = "force-dynamic";
 
-/** "2026-08-19T09:41:00+09:00" → "8월 19일" */
-function shortDate(iso: string) {
-  const [, month, day] = iso.slice(0, 10).split("-");
-  return `${Number(month)}월 ${Number(day)}일`;
-}
-
-/**
- * 담당자가 로그인하면 제일 먼저 보는 화면.
- * "지금 내가 뭘 해야 하는지"를 위에, 공고 목록을 아래에 둔다.
- */
+/** 담당자 첫 화면 = 공고 목록. 공고 → 후보자 → 면접 확인 순서로 들어간다. */
 export default async function DashboardPage() {
   const staff = await requireStaff();
   if (!isStoreConfigured()) return <StoreMissing />;
@@ -34,124 +26,29 @@ export default async function DashboardPage() {
   } catch {}
   // 받아 적기가 밀린 답변도 이때 보낸다(화면은 기다리지 않는다)
   after(() => sttSweep().catch(() => {}));
-  const requests = await openRequestCount();
 
   const rows = (await listJobs()).map(({ job, candidates }) => ({
     job,
     counts: countStages(candidates),
   }));
-
-  const openJobs = rows.filter(({ job }) => job.status === "진행중").length;
   const waiting = rows.reduce((sum, row) => sum + row.counts.검토대기, 0);
-  const running = rows.reduce((sum, row) => sum + row.counts.진행중, 0);
 
   return (
-    <div className="min-h-dvh">
-      <TopBar current="대시보드" who={staff.name} />
-
-      <main className="mx-auto w-full max-w-[1100px] px-4 pb-20 lg:px-6">
-        <div className="flex flex-wrap items-end justify-between gap-4 py-6">
-          <div>
-            <p className={labelClass}>담당자 화면</p>
-            <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-ink">
-              대시보드
-            </h1>
-            <p className="mt-1 text-[13px] text-ink-2">
-              먼저 볼 사람부터 알려 드립니다. 합격 여부는 담당자가 정합니다.
-            </p>
-          </div>
-          <Link href="/jobs/new" className={btnPrimary}>
-            새 직무 만들기
+    <StaffShell current="jobs" who={staff.name}>
+      <main className="mx-auto w-full max-w-[1120px] px-4 pt-6 pb-20 lg:px-8">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-ink">공고</h1>
+          {waiting > 0 ? (
+            <span className="text-[13px] text-ink-2">
+              검토 대기 <span className="num font-semibold text-ink">{waiting}</span>명
+            </span>
+          ) : null}
+          <Link href="/jobs/new" className={`${btnPrimary} ml-auto`}>
+            새 공고 만들기
           </Link>
         </div>
-
-        <p className="text-[13px] text-ink-2">
-          검토 대기 <span className="num text-ink">{waiting}</span>명 &nbsp;·&nbsp; 진행 중 면접{" "}
-          <span className="num text-ink">{running}</span>명 &nbsp;·&nbsp; 진행 중 공고{" "}
-          <span className="num text-ink">{openJobs}</span>개
-          {requests > 0 ? (
-            <>
-              &nbsp;·&nbsp;{" "}
-              <Link href="/requests" className="text-ink underline underline-offset-2">
-                후보자 요청 <span className="num">{requests}</span>건
-              </Link>
-            </>
-          ) : null}
-        </p>
-
-        <section className="mt-8">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-sm font-semibold text-ink">채용 공고</h2>
-            <p className="text-xs text-ink-3">최근 만든 순서</p>
-          </div>
-
-          {rows.length === 0 ? (
-            <p className={`${cardClass} mt-3 px-5 py-6 text-sm text-ink-2`}>
-              아직 만든 공고가 없습니다. [새 직무 만들기]로 질문과 평가 기준을 먼저 정하세요.
-            </p>
-          ) : null}
-
-          <ul className={`${cardClass} mt-3 divide-y divide-line empty:hidden`}>
-            {rows.map(({ job, counts }) => (
-              <li key={job.id}>
-                <Link
-                  href={`/jobs/${job.id}/candidates`}
-                  className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-4 hover:bg-canvas"
-                >
-                  <div className="min-w-[220px] flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[15px] font-semibold text-ink">
-                        {job.title}
-                      </span>
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-                          job.status === "진행중"
-                            ? "border-line-strong bg-surface text-ink-2"
-                            : "border-line bg-mute text-ink-3"
-                        }`}
-                      >
-                        {job.status === "진행중" ? "진행 중" : "마감"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-ink-3">
-                      질문 {job.questionCount}문항 &nbsp;·&nbsp; 최근 활동{" "}
-                      {shortDate(job.lastActivityAt)}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className={labelClass}>후보자</p>
-                      <p className="num mt-0.5 text-lg text-ink">
-                        {counts.total}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className={labelClass}>검토 대기</p>
-                      <p
-                        className={`num mt-0.5 text-lg ${
-                          counts.검토대기 > 0 ? "text-ink" : "text-ink-3"
-                        }`}
-                      >
-                        {counts.검토대기}
-                      </p>
-                    </div>
-                    <span aria-hidden className="text-ink-3">
-                      &rsaquo;
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-
-          <p className={`${panelClass} mt-3 px-4 py-3 text-xs leading-relaxed text-ink-2`}>
-            검토 대기는 &quot;답변은 다 냈는데 아직 아무도 열어 보지 않은
-            사람&quot;입니다. 점수가 높은 순서가 아니라, 기다린 순서대로
-            보시면 됩니다.
-          </p>
-        </section>
+        <JobsTable rows={rows} hireUrl={hireBase()} />
       </main>
-    </div>
+    </StaffShell>
   );
 }

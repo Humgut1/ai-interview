@@ -1,6 +1,6 @@
 import Link from "next/link";
 import RubricBuilder from "@/components/rubric/RubricBuilder";
-import TopBar from "@/components/ui/TopBar";
+import StaffShell from "@/components/ui/StaffShell";
 import { panelClass } from "@/components/ui/styles";
 import { requireStaff } from "@/lib/auth/staff";
 import { hireIdOk } from "@/lib/auth/hire-token";
@@ -9,7 +9,7 @@ import { createEmptyJob } from "@/lib/rubric";
 import { hirePosition, jobForHirePosition } from "@/lib/store";
 
 export const metadata = {
-  title: "새 직무 만들기 · AI 면접",
+  title: "새 공고 · Screen",
 };
 
 export const dynamic = "force-dynamic";
@@ -34,25 +34,21 @@ export default async function NewJobPage({
   }
 
   return (
-    <div className="min-h-dvh">
-      <TopBar current="새 직무" who={staff.name} />
+    <StaffShell current="jobs" who={staff.name}>
       <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
         <nav className="text-sm text-ink-3">
           <Link href="/dashboard" className="hover:text-ink">
-            대시보드
+            공고
           </Link>
           <span className="mx-1.5">/</span>
-          <span className="text-ink">새 직무</span>
+          <span className="text-ink">새 공고</span>
         </nav>
 
         <header className="mt-4">
           <h1 className="text-2xl font-bold text-ink">
-            직무와 평가 기준 만들기
+            새 공고
           </h1>
-          <p className="mt-2 text-sm leading-relaxed text-ink-2">
-            여기서 만든 기준(rubric)대로만 AI 가 답변을 채점합니다. 점수와 근거를
-            정리해 줄 뿐, 합격 여부는 사람이 정합니다.
-          </p>
+          <p className="mt-1 text-[13px] text-ink-2">질문 · 평가 기준 · 면접 방식 · 합격 여부는 사람이 정함</p>
         </header>
 
         {position ? (
@@ -85,6 +81,6 @@ export default async function NewJobPage({
           />
         </div>
       </main>
-    </div>
+    </StaffShell>
   );
 }

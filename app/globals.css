@@ -28,6 +28,16 @@
 
   /* 점수 막대. 일부러 등급별로 색을 바꾸지 않는다 (신호등 금지) */
   --color-bar: #3b4744;
+
+  /* 상태 색 — 점(dot)과 그 옆 글자에만 쓴다. 버튼·강조에는 안 쓴다 */
+  --color-st-run: #1d6fd6; /* 진행 중 */
+  --color-st-run-ink: #1d5fbf;
+  --color-st-ok: #1f8a4c; /* 제출 완료 */
+  --color-st-ok-ink: #1f7a45;
+  --color-st-warn: #d97706; /* 요청·주의 */
+  --color-st-warn-ink: #a3530a;
+  --color-st-bad: #b42318; /* 만료·실패 */
+  --color-st-off: #a1a1aa; /* 아직 안 함 */
 }
 
 /* 어두운 화면 — 이름은 그대로 두고 값만 바꾼다. 화면 코드는 손대지 않아도 따라온다. */
@@ -47,6 +57,14 @@
     --color-accent-hover: #ffffff;
     --color-accent-soft: #2a302e;
     --color-bar: #b3beba;
+    --color-st-run: #5b9bf0;
+    --color-st-run-ink: #7fb0f3;
+    --color-st-ok: #3fb56e;
+    --color-st-ok-ink: #6cc991;
+    --color-st-warn: #f0a13a;
+    --color-st-warn-ink: #f3b766;
+    --color-st-bad: #f07268;
+    --color-st-off: #71717a;
   }
 }
 

@@ -108,7 +108,7 @@ export async function getJob(id: string): Promise<Job | null> {
   return data ? toJob(data) : null;
 }
 
-function summaryOf(row: any, interviews: any[]): JobSummary {
+function summaryOf(row: any, interviews: any[], dept?: string): JobSummary {
   const times = [
     row.created_at,
     ...interviews.flatMap((iv) => [iv.created_at, iv.completed_at]),
@@ -121,7 +121,29 @@ function summaryOf(row: any, interviews: any[]): JobSummary {
     createdAt: toKst(row.created_at),
     questionCount: (row.questions ?? []).length,
     lastActivityAt: toKst(last),
+    mode: row.mode === "video" ? "video" : "text",
+    ...(row.hire_position_id ? { hirePositionId: row.hire_position_id } : {}),
+    ...(dept ? { dept } : {}),
   };
+}
+
+/** Hire 공고의 부서 — 공고 목록에 같이 보인다. 못 읽으면 빈 채로 둔다(목록은 떠야 한다). */
+async function hireDepts(pids: string[]) {
+  const map = new Map<string, string>();
+  if (!pids.length) return map;
+  const { data } = await db().from("positions").select("id, dept").in("id", pids);
+  for (const p of data ?? []) if (p.dept) map.set(p.id, p.dept);
+  return map;
+}
+
+/** Hire 후보자 이름·메일 — Screen 은 라벨만 갖고 있고 실명은 Hire 표에서 읽는다. */
+async function hireNames(cids: string[]) {
+  const map = new Map<string, { name: string; email?: string }>();
+  const ids = [...new Set(cids.filter(Boolean))];
+  if (!ids.length) return map;
+  const { data } = await db().from("candidates").select("id, nm, email").in("id", ids);
+  for (const c of data ?? []) map.set(c.id, { name: c.nm, ...(c.email ? { email: c.email } : {}) });
+  return map;
 }
 
 export async function listJobs(): Promise<
@@ -134,9 +156,14 @@ export async function listJobs(): Promise<
   check(error, "공고 목록");
   const ids = (jobs ?? []).map((job) => job.id);
   const interviews = ids.length ? await interviewRows(ids) : [];
+  const depts = await hireDepts((jobs ?? []).map((j) => j.hire_position_id).filter(Boolean));
   return (jobs ?? []).map((row) => {
     const mine = interviews.filter((iv) => iv.job_id === row.id);
-    return { job: summaryOf(row, mine), candidates: mine.map(toCandidate) };
+    const total = (row.questions ?? []).length;
+    return {
+      job: summaryOf(row, mine, depts.get(row.hire_position_id)),
+      candidates: mine.map((iv) => toCandidate(iv, total)),
+    };
   });
 }
 
@@ -149,9 +176,14 @@ export async function getJobSummary(id: string) {
   check(error, "공고 조회");
   if (!data) return null;
   const interviews = await interviewRows([id]);
+  const [depts, names] = await Promise.all([
+    hireDepts(data.hire_position_id ? [data.hire_position_id] : []),
+    hireNames(interviews.map((iv) => iv.hire_candidate_id)),
+  ]);
+  const total = (data.questions ?? []).length;
   return {
-    job: summaryOf(data, interviews),
-    candidates: interviews.map(toCandidate),
+    job: summaryOf(data, interviews, depts.get(data.hire_position_id)),
+    candidates: interviews.map((iv) => toCandidate(iv, total, names.get(iv.hire_candidate_id))),
   };
 }
 
@@ -168,7 +200,11 @@ async function interviewRows(jobIds: string[]) {
 }
 
 /** 링크 발급·조회 결과 한 줄. 점수는 채점(SC2)이 끝난 면접에만 있다. */
-function toCandidate(row: any): Candidate {
+function toCandidate(
+  row: any,
+  questionTotal = 0,
+  person?: { name: string; email?: string }
+): Candidate {
   const review = Array.isArray(row.screen_reviews)
     ? row.screen_reviews[0]
     : row.screen_reviews;
@@ -181,12 +217,24 @@ function toCandidate(row: any): Candidate {
   const openRequests = ((row.screen_requests ?? []) as { status: string }[]).filter(
     (r) => r.status === "open"
   ).length;
+  const last = [row.created_at, row.consent_at, row.started_at, row.completed_at]
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const expired = !submitted && Boolean(row.expires_at) && new Date(row.expires_at).getTime() < Date.now();
   return {
     id: row.id,
     label: row.label,
     token: row.token,
     invitedAt: toKst(row.created_at),
     stage: row.stage as CandidateStage,
+    answered: submitted ? questionTotal : Math.min(questionTotal, row.question_index ?? 0),
+    questionTotal,
+    lastActivityAt: toKst(last),
+    expiresAt: toKst(row.expires_at),
+    ...(expired ? { expired: true } : {}),
+    ...(row.hire_candidate_id ? { hireCandidateId: row.hire_candidate_id } : {}),
+    ...(person ? person : {}),
     ...(row.opted_out_at ? { optedOut: true } : {}),
     ...(purged ? { purged: true } : {}),
     ...(openRequests ? { openRequests } : {}),
@@ -232,7 +280,8 @@ export async function issueInterview(
     .select("*")
     .single();
   check(error, "면접 링크 발급");
-  return toCandidate(data);
+  const { data: job } = await db().from("screen_jobs").select("questions").eq("id", jobId).maybeSingle();
+  return toCandidate(data, (job?.questions ?? []).length);
 }
 
 /* ── 후보자 화면 ───────────────────────────── */
@@ -790,9 +839,12 @@ export async function getReport(id: string): Promise<ReportBundle | null> {
         )
       : 0;
 
-  const siblings = (await interviewRows([job.id]))
-    .map(toCandidate)
-    .filter((c) => c.stage === "제출완료");
+  const rows = await interviewRows([job.id]);
+  const names = await hireNames([row.hire_candidate_id, ...rows.map((iv) => iv.hire_candidate_id)]);
+  const siblings = rows
+    .map((iv) => toCandidate(iv, job.questions.length, names.get(iv.hire_candidate_id)))
+    .filter((c) => c.stage === "제출완료" && !c.purged);
+  const me = names.get(row.hire_candidate_id);
 
   return {
     report: {
@@ -800,6 +852,10 @@ export async function getReport(id: string): Promise<ReportBundle | null> {
       jobId: job.id,
       jobTitle: job.title,
       candidateLabel: row.label,
+      ...(me ? { name: me.name, ...(me.email ? { email: me.email } : {}) } : {}),
+      ...(row.hire_candidate_id ? { hireCandidateId: row.hire_candidate_id } : {}),
+      ...(row.screen_jobs.hire_position_id ? { hirePositionId: row.screen_jobs.hire_position_id } : {}),
+      mode: job.mode,
       completedAt: toKst(row.completed_at),
       durationMinutes: minutes,
       summary: row.ai_summary ?? "",
@@ -825,6 +881,7 @@ export async function getReport(id: string): Promise<ReportBundle | null> {
     candidates: siblings.map((c) => ({
       reportId: c.id,
       candidateLabel: c.label,
+      ...(c.name ? { name: c.name } : {}),
       completedAt: c.completedAt ?? "",
       ...(c.aiScore === undefined ? {} : { aiScore: c.aiScore }),
       status: c.reviewStatus ?? "미검토",

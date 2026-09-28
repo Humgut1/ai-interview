@@ -195,6 +195,12 @@ export type InterviewReport = {
   jobTitle: string;
   /** 개인 식별 정보는 최소한만 다룬다. 화면 확인용은 익명 라벨. */
   candidateLabel: string;
+  /** Hire 에 연결돼 있으면 실명·메일·Hire 주소를 만들 id */
+  name?: string;
+  email?: string;
+  hireCandidateId?: string;
+  hirePositionId?: string;
+  mode?: InterviewMode;
   completedAt: string;
   durationMinutes: number;
   /** 한 줄 요약 */
@@ -209,6 +215,8 @@ export type InterviewReport = {
 export type CandidateRow = {
   reportId: string;
   candidateLabel: string;
+  /** Hire 에 연결된 이름 (있으면 라벨 대신) */
+  name?: string;
   completedAt: string;
   /** 아직 채점 전이면 없음 */
   aiScore?: number;
@@ -247,6 +255,18 @@ export type Candidate = {
   purged?: boolean;
   /** 처리 안 된 후보자 요청 수 */
   openRequests?: number;
+  /** Hire 후보자와 연결돼 있으면 그 이름·메일 (같은 Supabase 의 Hire 표) */
+  hireCandidateId?: string;
+  name?: string;
+  email?: string;
+  /** 답을 낸 질문 수 / 전체 질문 수 */
+  answered: number;
+  questionTotal: number;
+  /** 링크 발급·동의·시작·제출 중 가장 늦은 시각 */
+  lastActivityAt: string;
+  expiresAt: string;
+  /** 제출 전인데 링크 기한이 지났다 */
+  expired?: boolean;
 };
 
 /** 대시보드 목록에 쓰는 공고 한 줄. 질문 본문까지는 담지 않는다. */
@@ -258,4 +278,8 @@ export type JobSummary = {
   questionCount: number;
   /** 마지막으로 누군가 답변을 제출하거나 링크를 받은 시각 */
   lastActivityAt: string;
+  mode: InterviewMode;
+  hirePositionId?: string;
+  /** Hire 공고의 부서 (연결돼 있을 때) */
+  dept?: string;
 };

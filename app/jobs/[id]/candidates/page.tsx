@@ -1,16 +1,18 @@
 import CandidateManager from "@/components/candidates/CandidateManager";
+import StaffShell from "@/components/ui/StaffShell";
 import Notice, { StoreMissing } from "@/components/ui/Notice";
 import { isStoreConfigured } from "@/lib/db";
 import { getJobSummary } from "@/lib/store";
+import { hireBase } from "@/lib/candidates";
 import { requireStaff } from "@/lib/auth/staff";
 
 export const metadata = {
-  title: "후보자 관리 · AI 면접",
+  title: "후보자 · Screen",
 };
 
 export const dynamic = "force-dynamic";
 
-/** 공고 하나에 딸린 후보자 목록. 로그인 확인은 SC4 에서 붙인다. */
+/** 공고 하나에 딸린 후보자 목록 */
 export default async function CandidatesPage({
   params,
 }: PageProps<"/jobs/[id]/candidates">) {
@@ -25,5 +27,9 @@ export default async function CandidatesPage({
     );
   }
 
-  return <CandidateManager job={found.job} initialCandidates={found.candidates} who={staff.name} />;
+  return (
+    <StaffShell current="jobs" who={staff.name}>
+      <CandidateManager job={found.job} initialCandidates={found.candidates} hireUrl={hireBase()} />
+    </StaffShell>
+  );
 }
