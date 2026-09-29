@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import BrandMark from "@/components/brand/BrandMark";
 import RequestBox from "@/components/interview/RequestBox";
 import type { CandidateRights } from "@/lib/store";
@@ -19,12 +19,15 @@ export default function CandidateTop({
   setup,
   rights,
   onRights,
+  right,
 }: {
   title: string;
   steps?: TopStep[];
   setup: InterviewSetup;
   rights: CandidateRights;
   onRights: (rights: CandidateRights) => void;
+  /** 오른쪽 끝에 붙는 것 — 영상 면접의 [나가기] 메뉴 */
+  right?: ReactNode;
 }) {
   const [help, setHelp] = useState(false);
   return (
@@ -53,7 +56,7 @@ export default function CandidateTop({
             </li>
           ))}
         </ol>
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-4">
           <button
             type="button"
             onClick={() => setHelp((v) => !v)}
@@ -62,6 +65,7 @@ export default function CandidateTop({
           >
             도움이 필요하신가요
           </button>
+          {right}
         </div>
       </header>
       {help ? (

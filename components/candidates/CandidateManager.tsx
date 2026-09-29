@@ -201,6 +201,11 @@ export default function CandidateManager({
                     <span className="num text-xs text-ink-2">
                       {c.answered}/{c.questionTotal}
                     </span>
+                    {c.leaveCount ? (
+                      <span className="num text-xs text-ink-3" title="잠시 나갔다 들어온 횟수">
+                        나감 {c.leaveCount}
+                      </span>
+                    ) : null}
                   </span>
                   <span className="num text-right text-[13px] text-ink-2">{md(c.invitedAt)}</span>
                   <span className="num text-right text-[13px] text-ink-2">{mdhm(c.lastActivityAt)}</span>

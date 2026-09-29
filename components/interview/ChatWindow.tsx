@@ -146,7 +146,7 @@ export default function ChatWindow({
 
   if (session.phase === "done") {
     return (
-      <CompleteScreen setup={setup} session={session} rights={rights} onRights={setRights} />
+      <CompleteScreen setup={setup} session={session} rights={rights} onRights={setRights} org={org} />
     );
   }
 
@@ -158,6 +158,8 @@ export default function ChatWindow({
         onSession={setSession}
         rights={rights}
         onRights={setRights}
+        org={org}
+        deadline={deadline}
       />
     );
   }

@@ -237,6 +237,8 @@ function toCandidate(
     ...(person ? person : {}),
     ...(row.opted_out_at ? { optedOut: true } : {}),
     ...(purged ? { purged: true } : {}),
+    ...(row.withdrawn_at ? { withdrawn: true } : {}),
+    ...(row.leave_count ? { leaveCount: Number(row.leave_count) } : {}),
     ...(openRequests ? { openRequests } : {}),
     ...(submitted && !purged
       ? {
@@ -369,7 +371,7 @@ async function loadByToken(token: string) {
 export async function lookupInterview(token: string): Promise<InterviewLookup> {
   const found = await loadByToken(token);
   if (!found) return { state: "missing" };
-  if (found.row.purged_at || found.row.opted_out_at) return { state: "closed" };
+  if (found.row.purged_at || found.row.opted_out_at || found.row.withdrawn_at) return { state: "closed" };
   // 제출을 마친 사람은 기한이 지나도 완료 화면을 본다.
   if (
     found.row.stage !== "제출완료" &&
@@ -469,7 +471,7 @@ type Blocked = "missing" | "expired" | "stale" | "closed";
 /** 답을 받을 수 있는 상태인지. 받을 수 없으면 이유, 받을 수 있으면 null. */
 function blockedReason(loaded: Loaded, seen: number): Blocked | null {
   const { row, session } = loaded;
-  if (row.stage !== "진행중" || row.opted_out_at || row.purged_at) return "closed";
+  if (row.stage !== "진행중" || row.opted_out_at || row.purged_at || row.withdrawn_at) return "closed";
   if (new Date(row.expires_at).getTime() < Date.now()) return "expired";
   if (seen !== session.messages.length) return "stale";
   // 마지막 발언이 AI 질문이어야 답할 차례다
@@ -984,7 +986,13 @@ export interface HireInterview {
   optedOutAt: string | null;
   /** 보관 기간·삭제 요청으로 내용을 지운 시각 */
   purgedAt: string | null;
-  purgeReason: "retention" | "request" | "staff" | null;
+  purgeReason: "retention" | "request" | "staff" | "withdrawn" | null;
+  /** 후보자가 면접 중 지원을 그만둔 시각 · 이유 */
+  withdrawnAt: string | null;
+  withdrawReason: string | null;
+  /** 잠시 나갔다 들어온 횟수 · 마지막 나간 시각 */
+  leaveCount: number;
+  leftAt: string | null;
   /** 후보자 요청 (처리 안 된 것 + 처리한 것) */
   requests: ScreenRequest[];
 }
@@ -1036,6 +1044,12 @@ export async function interviewsForHireCandidate(cid: string): Promise<HireInter
       optedOutAt: row.opted_out_at ? toKst(row.opted_out_at) : null,
       purgedAt: row.purged_at ? toKst(row.purged_at) : null,
       purgeReason: row.purge_reason ?? null,
+      withdrawnAt: row.withdrawn_at ? toKst(row.withdrawn_at) : null,
+      withdrawReason: row.withdraw_reason
+        ? WITHDRAW_REASON_LABEL[row.withdraw_reason as WithdrawReason] ?? null
+        : null,
+      leaveCount: Number(row.leave_count ?? 0) || 0,
+      leftAt: row.left_at ? toKst(row.left_at) : null,
       requests: ((row.screen_requests ?? []) as any[])
         .map(toRequest)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -1116,7 +1130,9 @@ import {
   RETENTION_DEFAULT,
   RETENTION_MAX,
   RETENTION_MIN,
+  WITHDRAW_REASON_LABEL,
   type RequestKind,
+  type WithdrawReason,
 } from "@/lib/requests";
 export {
   CONSENT_VERSION,
@@ -1125,7 +1141,9 @@ export {
   RETENTION_DEFAULT,
   RETENTION_MAX,
   RETENTION_MIN,
+  WITHDRAW_REASON_LABEL,
   type RequestKind,
+  type WithdrawReason,
 } from "@/lib/requests";
 
 export interface ScreenRequest {
@@ -1189,6 +1207,8 @@ export interface CandidateRights {
   sttVendor: string | null;
   optedOut: boolean;
   open: RequestKind[];
+  /** 지난번 잠시 나간 시각(한국 시간) — 이어하기 화면에 보인다 */
+  leftAt: string | null;
 }
 
 async function rightsOf(row: any): Promise<CandidateRights> {
@@ -1202,6 +1222,7 @@ async function rightsOf(row: any): Promise<CandidateRights> {
     sttVendor: sttReady() ? STT_VENDOR : null,
     optedOut: Boolean(row.opted_out_at),
     open: requests.error ? [] : (requests.data ?? []).map((r: any) => r.kind as RequestKind),
+    leftAt: row.left_at ? toKst(row.left_at) : null,
   };
 }
 
@@ -1209,12 +1230,21 @@ export type CandidatePage =
   | { state: "ok"; setup: InterviewSetup; session: InterviewSession; rights: CandidateRights; expiresAt: string }
   | { state: "missing" }
   | { state: "expired" }
-  | { state: "purged" };
+  | { state: "purged" }
+  | { state: "withdrawn"; jobTitle: string; at: string; videos: number };
 
 /** 후보자 링크 화면 한 장 — 면접 + 권리. */
 export async function candidatePage(token: string): Promise<CandidatePage> {
   const found = await loadByToken(token);
   if (!found) return { state: "missing" };
+  if (found.row.withdrawn_at) {
+    return {
+      state: "withdrawn",
+      jobTitle: found.job.title,
+      at: toKst(found.row.withdrawn_at),
+      videos: Number(found.row.withdrawn_videos ?? 0) || 0,
+    };
+  }
   if (found.row.purged_at) return { state: "purged" };
   const rights = await rightsOf(found.row);
   if (
@@ -1268,10 +1298,75 @@ export async function candidateRequest(
 }
 
 /**
+ * 잠시 나가기 (SC11). 진행 중인 면접만 — 나간 시각·횟수를 남긴다(담당자에게 보인다).
+ * 녹화 중이던 답은 올린 적이 없으니 지울 것도 없다. 다시 들어오면 같은 질문의 준비 시간부터.
+ */
+export async function leaveInterview(token: string): Promise<{ ok: boolean }> {
+  const found = await loadByToken(token);
+  if (!found) return { ok: false };
+  const { row } = found;
+  if (row.stage !== "진행중" || row.withdrawn_at || row.purged_at || row.opted_out_at) return { ok: false };
+  const { error } = await db()
+    .from("screen_interviews")
+    .update({ left_at: new Date().toISOString(), leave_count: (row.leave_count ?? 0) + 1, take_count: 0 })
+    .eq("id", row.id);
+  check(error, "나간 기록");
+  return { ok: true };
+}
+
+export type WithdrawResult =
+  | { ok: true; at: string; videos: number }
+  | { ok: false; reason: "missing" | "submitted" | "closed" };
+
+/**
+ * 지원 그만두기 (SC11). 올린 영상과 받아 적은 글을 그 자리에서 지우고,
+ * 담당자에게 알리는 요청 한 줄(kind 'withdraw')을 남긴다 — Screen 요청함 · Hire 내 할 일에 뜬다.
+ * 제출을 마친 면접은 여기서 그만둘 수 없다(기록 삭제 요청으로).
+ */
+export async function withdrawInterview(token: string, reason: WithdrawReason): Promise<WithdrawResult> {
+  const found = await loadByToken(token);
+  if (!found) return { ok: false, reason: "missing" };
+  const { row, session } = found;
+  if (row.withdrawn_at) {
+    return { ok: true, at: toKst(row.withdrawn_at), videos: Number(row.withdrawn_videos ?? 0) || 0 };
+  }
+  if (row.stage === "제출완료") return { ok: false, reason: "submitted" };
+  if (row.purged_at || row.opted_out_at) return { ok: false, reason: "closed" };
+
+  const videos = session.messages.filter((m) => m.media).length;
+  const now = new Date().toISOString();
+  // 먼저 표시해서 두 창에서 동시에 눌러도 한 번만
+  const { data: claimed, error } = await db()
+    .from("screen_interviews")
+    .update({ withdrawn_at: now, withdraw_reason: reason, withdrawn_videos: videos })
+    .eq("id", row.id)
+    .is("withdrawn_at", null)
+    .select("id");
+  check(error, "지원 그만두기");
+  if (claimed?.length) {
+    await purgeInterview(row.id, "withdrawn");
+    // 담당자 알림 한 줄. 삭제가 메모를 비우므로 삭제 뒤에 넣는다.
+    const { error: reqError } = await db().from("screen_requests").insert({
+      id: `rq_${hex(6)}`,
+      interview_id: row.id,
+      kind: "withdraw",
+      note: reason === "none" ? "" : WITHDRAW_REASON_LABEL[reason],
+    });
+    if (reqError?.code !== "23505") check(reqError, "그만둠 알림");
+  }
+  const fresh = await loadByToken(token);
+  return {
+    ok: true,
+    at: toKst(fresh?.row.withdrawn_at ?? now),
+    videos: Number(fresh?.row.withdrawn_videos ?? videos) || 0,
+  };
+}
+
+/**
  * 면접 한 건의 내용을 지운다. 줄(누구에게 언제 보냈는지)은 남기고 대화·점수·검토·요청 메모를 지운다.
  * 녹화 파일(저장 칸의 면접 폴더)도 여기서 같이 지운다.
  */
-export async function purgeInterview(id: string, reason: "retention" | "request" | "staff") {
+export async function purgeInterview(id: string, reason: "retention" | "request" | "staff" | "withdrawn") {
   await removeMedia(id);
   for (const table of ["screen_messages", "screen_scores", "screen_reviews"]) {
     const { error } = await db().from(table).delete().eq("interview_id", id);

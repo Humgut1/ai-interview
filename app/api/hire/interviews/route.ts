@@ -41,6 +41,10 @@ export async function POST(req: Request) {
   if (mine.some((iv) => iv.optedOutAt)) {
     return Response.json({ ok: false, error: "opted-out" }, { status: 409 });
   }
+  // 면접 중 지원을 그만둔 사람에게는 다시 보내지 않는다(다시 지원하면 새 후보자로 들어온다).
+  if (mine.some((iv) => iv.withdrawnAt)) {
+    return Response.json({ ok: false, error: "withdrawn" }, { status: 409 });
+  }
   const open = mine.find(
     (iv) => iv.stage !== "제출완료" && !iv.expired && !iv.purgedAt
   );

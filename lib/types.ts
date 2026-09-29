@@ -36,9 +36,15 @@ export type VideoRules = {
   prepSec: number;
   /** 다시 찍기 허용 횟수 (0~1) */
   retakes: number;
+  /** 실전 전에 연습 질문 하나 (브라우저 안에서만 녹화, 올리지 않음) */
+  practice: boolean;
 };
 
-export const VIDEO_DEFAULTS: VideoRules = { answerSec: 120, prepSec: 30, retakes: 1 };
+export const VIDEO_DEFAULTS: VideoRules = { answerSec: 120, prepSec: 30, retakes: 1, practice: true };
+/** 연습 질문 — 공고마다 바꾸지 않는다(무엇을 말해도 되는 질문이어야 한다). */
+export const PRACTICE_QUESTION = "오늘 아침에 무엇을 하셨는지 30초 정도로 말씀해 주세요.";
+export const PRACTICE_ANSWER_SEC = 60;
+export const PRACTICE_PREP_SEC = 15;
 export const ANSWER_SEC_CHOICES = [60, 90, 120, 180];
 export const PREP_SEC_CHOICES = [15, 30, 60];
 export const RETAKE_CHOICES = [0, 1];
@@ -53,6 +59,7 @@ export function cleanVideoRules(value: Partial<VideoRules> | null | undefined): 
     answerSec: pick(value?.answerSec, ANSWER_SEC_CHOICES, VIDEO_DEFAULTS.answerSec),
     prepSec: pick(value?.prepSec, PREP_SEC_CHOICES, VIDEO_DEFAULTS.prepSec),
     retakes: pick(value?.retakes, RETAKE_CHOICES, VIDEO_DEFAULTS.retakes),
+    practice: typeof value?.practice === "boolean" ? value.practice : VIDEO_DEFAULTS.practice,
   };
 }
 
@@ -253,6 +260,10 @@ export type Candidate = {
   optedOut?: boolean;
   /** 보관 기간·삭제 요청으로 내용을 지웠다 */
   purged?: boolean;
+  /** 후보자가 면접 중 지원을 그만뒀다(영상은 그때 지움) */
+  withdrawn?: boolean;
+  /** 잠시 나갔다 들어온 횟수 */
+  leaveCount?: number;
   /** 처리 안 된 후보자 요청 수 */
   openRequests?: number;
   /** Hire 후보자와 연결돼 있으면 그 이름·메일 (같은 Supabase 의 Hire 표) */

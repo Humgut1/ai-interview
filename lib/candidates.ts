@@ -4,9 +4,10 @@ import type { Candidate } from "@/lib/types";
  * 후보자 한 명이 지금 어디에 있는지. 목록 탭·상태 점·숫자가 전부 이 한 곳을 본다.
  * 검토 대기 = 다 냈는데 담당자가 '검토 끝'을 누르지 않은 사람.
  */
-export type Bucket = "검토대기" | "진행중" | "안열어봄" | "검토끝" | "면접요청" | "만료" | "삭제됨";
+export type Bucket = "검토대기" | "진행중" | "안열어봄" | "검토끝" | "면접요청" | "만료" | "그만둠" | "삭제됨";
 
 export function bucketOf(c: Candidate): Bucket {
+  if (c.withdrawn) return "그만둠";
   if (c.purged) return "삭제됨";
   if (c.optedOut) return "면접요청";
   if (c.stage === "제출완료") return c.reviewStatus === "검토완료" ? "검토끝" : "검토대기";
@@ -22,6 +23,7 @@ export const BUCKET_LOOK: Record<Bucket, { label: string; ink: string; dot: stri
   검토끝: { label: "검토 끝", ink: "text-st-ok-ink", dot: "bg-st-ok" },
   면접요청: { label: "담당자 면접 요청", ink: "text-st-warn-ink", dot: "bg-st-warn" },
   만료: { label: "링크 만료", ink: "text-ink-3", dot: "bg-st-off" },
+  그만둠: { label: "지원 그만둠", ink: "text-ink-3", dot: "bg-st-off" },
   삭제됨: { label: "기록 삭제됨", ink: "text-ink-3", dot: "bg-st-off" },
 };
 
@@ -44,6 +46,7 @@ export function countStages(candidates: Candidate[]): StageCounts {
     검토끝: 0,
     면접요청: 0,
     만료: 0,
+    그만둠: 0,
     삭제됨: 0,
   };
   for (const c of candidates) {

@@ -7,8 +7,11 @@ import { candidateRequestAction } from "@/app/actions";
 import type { CandidateRights, RequestKind } from "@/lib/store";
 
 /** 버튼마다: 이름 · 누르기 전 확인 문장 · 메모 칸을 둘지 · 접수 뒤 문장 */
+/** 후보자가 누르는 요청. 'withdraw'(지원 그만둠)는 [나가기] 메뉴에서 따로 한다. */
+type AskKind = Exclude<RequestKind, "withdraw">;
+
 const KIND: Record<
-  RequestKind,
+  AskKind,
   { label: string; confirm: string; note: boolean; done: string }
 > = {
   human: {
@@ -52,7 +55,7 @@ export default function RequestBox({
 }: {
   token: string;
   rights: CandidateRights;
-  kinds: RequestKind[];
+  kinds: AskKind[];
   onRights: (rights: CandidateRights) => void;
   title?: string;
   /** 다른 카드 안에 넣을 때 — 테두리 없이 위 선만 */
@@ -64,7 +67,7 @@ export default function RequestBox({
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
 
-  async function send(kind: RequestKind) {
+  async function send(kind: AskKind) {
     if (sending.current) return;
     sending.current = true;
     setBusy(true);

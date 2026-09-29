@@ -10,11 +10,21 @@ export const RETENTION_MAX = 1095;
 /** 삭제 요청을 담당자가 이 날수 안에 처리하지 않으면 자동으로 지운다(개인정보 보호법 처리 기한 10일). */
 export const DELETE_REQUEST_DAYS = 10;
 
-export type RequestKind = "human" | "explain" | "delete";
+export type RequestKind = "human" | "explain" | "delete" | "withdraw";
 export const REQUEST_LABEL: Record<RequestKind, string> = {
   human: "담당자 면접 요청",
   explain: "결과 설명 요청",
   delete: "기록 삭제 요청",
+  withdraw: "지원 그만둠",
+};
+
+/** 지원을 그만두는 이유(선택). 고정 목록 — 자유 글은 받지 않는다(적은 글도 개인정보가 된다). */
+export type WithdrawReason = "offer" | "schedule" | "fit" | "none";
+export const WITHDRAW_REASON_LABEL: Record<WithdrawReason, string> = {
+  offer: "다른 곳에 합격",
+  schedule: "일정이 맞지 않음",
+  fit: "직무가 맞지 않음",
+  none: "말하지 않음",
 };
 
 export type { RequestRow } from "@/lib/store";

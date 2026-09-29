@@ -391,7 +391,7 @@ export default function RubricBuilder({
         </div>
 
         {job.mode === "video" ? (
-          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="답변 시간" htmlFor="video-answer">
               <select
                 id="video-answer"
@@ -432,6 +432,17 @@ export default function RubricBuilder({
                     {n === 0 ? "허용 안 함" : `질문마다 ${n}번`}
                   </option>
                 ))}
+              </select>
+            </Field>
+            <Field label="연습 질문" htmlFor="video-practice">
+              <select
+                id="video-practice"
+                value={job.video.practice ? "on" : "off"}
+                onChange={(event) => patchVideo({ practice: event.target.value === "on" })}
+                className={inputClass}
+              >
+                <option value="on">켬 · 실전 전에 한 번</option>
+                <option value="off">끔</option>
               </select>
             </Field>
           </div>

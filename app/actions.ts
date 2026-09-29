@@ -5,6 +5,9 @@ import {
   answerInterview,
   beginTake,
   candidateRequest,
+  leaveInterview,
+  withdrawInterview,
+  type WithdrawResult,
   prepareUpload,
   submitVideoAnswer,
   sttSweep,
@@ -16,6 +19,7 @@ import {
   startInterview,
   type CandidateRights,
   type RequestKind,
+  type WithdrawReason,
 } from "@/lib/store";
 import { validateJob } from "@/lib/rubric";
 import { staffOrNull } from "@/lib/auth/staff";
@@ -214,6 +218,33 @@ export async function candidateRequestAction(
   }
   try {
     return await candidateRequest(token, kind, note);
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}
+
+/** 잠시 나가기 — 나간 시각·횟수만 남긴다. */
+export async function leaveAction(token: string): Promise<{ ok: boolean }> {
+  if (typeof token !== "string") return { ok: false };
+  try {
+    return await leaveInterview(token);
+  } catch {
+    return { ok: false };
+  }
+}
+
+const WITHDRAW_REASONS: WithdrawReason[] = ["offer", "schedule", "fit", "none"];
+
+/** 지원 그만두기 — 올린 영상·받아 적은 글을 바로 지우고 담당자에게 알린다. */
+export async function withdrawAction(
+  token: string,
+  reason: WithdrawReason
+): Promise<WithdrawResult | { ok: false; reason: "error" }> {
+  if (typeof token !== "string" || !WITHDRAW_REASONS.includes(reason)) {
+    return { ok: false, reason: "error" };
+  }
+  try {
+    return await withdrawInterview(token, reason);
   } catch {
     return { ok: false, reason: "error" };
   }

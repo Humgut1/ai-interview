@@ -1,4 +1,5 @@
 import ChatWindow from "@/components/interview/ChatWindow";
+import WithdrawnScreen from "@/components/interview/WithdrawnScreen";
 import Notice from "@/components/ui/Notice";
 import { isStoreConfigured } from "@/lib/db";
 import { candidatePage } from "@/lib/store";
@@ -46,6 +47,10 @@ export default async function InterviewPage({
   }
 
   const found = await candidatePage(token);
+  const org = process.env.ORG_NAME ? `${process.env.ORG_NAME} 채용` : "채용 면접";
+  if (found.state === "withdrawn") {
+    return <WithdrawnScreen org={org} jobTitle={found.jobTitle} at={found.at} videos={found.videos} />;
+  }
   if (found.state === "missing") {
     return (
       <Notice
@@ -79,7 +84,7 @@ export default async function InterviewPage({
       setup={found.setup}
       initialSession={found.session}
       initialRights={found.rights}
-      org={process.env.ORG_NAME ? `${process.env.ORG_NAME} 채용` : "채용 면접"}
+      org={org}
       deadline={deadlineLabel(found.expiresAt)}
     />
   );

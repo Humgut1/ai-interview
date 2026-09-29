@@ -3,17 +3,39 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import CandidateTop, { type TopStep } from "@/components/interview/CandidateTop";
 import { clock } from "@/components/interview/ConsentScreen";
+import EndPage, { kstShort } from "@/components/interview/EndPage";
+import { ExitMenu, LeaveDialog, WithdrawDialog, type ExitKind } from "@/components/interview/ExitMenu";
+import WithdrawnScreen from "@/components/interview/WithdrawnScreen";
 import { btnPrimary, btnSecondary } from "@/components/ui/styles";
-import { beginTakeAction, prepareUploadAction, submitVideoAction } from "@/app/actions";
+import {
+  beginTakeAction,
+  leaveAction,
+  prepareUploadAction,
+  submitVideoAction,
+  withdrawAction,
+} from "@/app/actions";
 import { progressOf } from "@/lib/interview";
+import type { WithdrawReason } from "@/lib/requests";
 import type { CandidateRights } from "@/lib/store";
-import type { InterviewSession, InterviewSetup } from "@/lib/types";
+import {
+  PRACTICE_ANSWER_SEC,
+  PRACTICE_PREP_SEC,
+  PRACTICE_QUESTION,
+  type InterviewSession,
+  type InterviewSetup,
+} from "@/lib/types";
 
 /*
- * 영상 면접 화면. 기기 확인(C3) → (질문마다) 준비 → 녹화 → 다시 보기 → 보내기(C5).
+ * 영상 면접 화면. (이어하기 안내) → 기기 확인(C3) → 연습 질문(C4) → (질문마다) 준비 → 녹화 → 다시 보기 → 보내기(C5).
  * 녹화 파일은 브라우저가 Supabase 저장 칸으로 바로 올리고, 서버에는 "어디에 올렸는지"만 알린다.
- * 진행 기록의 원본은 서버다. 새로고침하면 기기 확인부터 다시 하고 같은 질문에서 이어진다.
+ * 연습 녹화는 이 브라우저 안에서만 재생하고 어디에도 올리지 않는다.
+ * 진행 기록의 원본은 서버다. 새로고침하면 이어하기 안내 → 기기 확인을 거쳐 같은 질문에서 이어진다.
+ * 머리 띠 [나가기 ▾] = 잠시 나가기(C6) · 지원 그만두기(C7).
  */
+
+type Mode = "practice" | "real";
+
+type Ended = { kind: "left" } | { kind: "withdrawn"; at: string; videos: number };
 
 type Step = "check" | "prep" | "rec" | "review" | "upload";
 
@@ -98,13 +120,30 @@ export default function VideoInterview({
   onSession,
   rights,
   onRights,
+  org,
+  deadline,
 }: {
   setup: InterviewSetup;
   session: InterviewSession;
   onSession: (session: InterviewSession) => void;
   rights: CandidateRights;
   onRights: (rights: CandidateRights) => void;
+  org: string;
+  /** 마감 — "10/11(토) 23:59" */
+  deadline: string | null;
 }) {
+  const seen = session.messages.length;
+  // 처음 들어온 것이 아니면(답을 하나라도 보냈거나 나갔다 왔으면) 이어하기 안내부터, 연습은 건너뛴다.
+  const [resuming, setResuming] = useState(() => seen > 2 || Boolean(rights.leftAt));
+  const [mode, setMode] = useState<Mode>(() =>
+    setup.video.practice && !(seen > 2 || rights.leftAt) ? "practice" : "real"
+  );
+  // 이번에 연습 질문을 보여 주는지 — 머리 띠 단계·왼쪽 목록에 넣을지 정한다.
+  const [practiced] = useState(() => setup.video.practice && !(seen > 2 || rights.leftAt));
+  const [exit, setExit] = useState<ExitKind | null>(null);
+  const [exitBusy, setExitBusy] = useState(false);
+  const [exitMsg, setExitMsg] = useState<string | null>(null);
+  const [ended, setEnded] = useState<Ended | null>(null);
   const [step, setStep] = useState<Step>("check");
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [deviceMsg, setDeviceMsg] = useState<string | null>(null);
@@ -131,11 +170,17 @@ export default function VideoInterview({
   const lock = useRef(false);
   const streamRef = useRef<MediaStream | null>(null);
   const autoOpened = useRef(false);
+  // 나가느라 멈춘 녹화는 다시 보기로 넘기지 않고 버린다.
+  const discard = useRef(false);
 
-  const seen = session.messages.length;
   const prompt = session.messages[seen - 1];
   const progress = progressOf(session, setup);
   const maxTakes = 1 + setup.video.retakes;
+  const practicing = mode === "practice";
+  const answerSec = practicing ? PRACTICE_ANSWER_SEC : setup.video.answerSec;
+  const prepSecOf = (m: Mode) => (m === "practice" ? Math.min(setup.video.prepSec, PRACTICE_PREP_SEC) : setup.video.prepSec);
+  const answers = session.messages.filter((m) => m.role === "candidate");
+  const videos = answers.filter((m) => m.media).length;
   const [recordType] = useState(() => (typeof window === "undefined" ? null : pickType()));
   const total = setup.questions.length;
 
@@ -198,13 +243,14 @@ export default function VideoInterview({
     return () => clearInterval(timer);
   }, [stream, step]);
 
-  // 녹화 중·보내기 전에 창을 닫으려 하면 한 번 묻는다.
+  // 실전 녹화 중·보내기 전에 창을 닫으려 하면 한 번 묻는다. 연습은 잃을 것이 없으니 안 묻는다.
   useEffect(() => {
+    if (practicing || ended) return;
     if (step !== "rec" && step !== "review" && step !== "upload") return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [step]);
+  }, [step, practicing, ended]);
 
   // 다시 보기 파일은 다 쓰면 메모리에서 뺀다.
   useEffect(() => {
@@ -278,27 +324,34 @@ export default function VideoInterview({
     [recordType]
   );
 
-  // 동의하고 들어오면 바로 카메라를 켠다(허락 창이 한 번 뜬다).
+  // 동의하고 들어오면 바로 카메라를 켠다(허락 창이 한 번 뜬다). 이어하기 안내 중에는 누를 때까지 기다린다.
   // 타이머로 미루는 것은 개발 모드의 두 번 실행에서 한 번만 열리게 하려는 것.
   useEffect(() => {
+    if (resuming) return;
     const timer = setTimeout(() => {
       if (autoOpened.current) return;
       autoOpened.current = true;
       void openDevices();
     }, 0);
     return () => clearTimeout(timer);
-  }, [openDevices]);
+  }, [openDevices, resuming]);
 
   const startRecording = useCallback(async () => {
     if (lock.current || !stream || !recordType) return;
     lock.current = true;
     setFailure(null);
     try {
-      const began = await beginTakeAction(setup.token, seen);
-      if (!began.ok) {
-        fail(began.reason);
-        return;
+      // 연습은 서버에 아무것도 알리지 않는다(다시 찍기 횟수에도 안 들어감).
+      let takeNo = 0;
+      if (mode === "real") {
+        const began = await beginTakeAction(setup.token, seen);
+        if (!began.ok) {
+          fail(began.reason);
+          return;
+        }
+        takeNo = began.take;
       }
+      discard.current = false;
       const chunks: Blob[] = [];
       const rec = new MediaRecorder(stream, {
         mimeType: recordType,
@@ -309,10 +362,11 @@ export default function VideoInterview({
         if (event.data.size > 0) chunks.push(event.data);
       };
       rec.onstop = () => {
+        if (discard.current) return;
         const seconds = (performance.now() - startedAt.current) / 1000;
         const type = recordType.split(";")[0];
         const blob = new Blob(chunks, { type });
-        setTake({ blob, url: URL.createObjectURL(blob), seconds, type, take: began.take });
+        setTake({ blob, url: URL.createObjectURL(blob), seconds, type, take: takeNo });
         setStep("review");
       };
       recorder.current = rec;
@@ -325,21 +379,21 @@ export default function VideoInterview({
     } finally {
       lock.current = false;
     }
-  }, [stream, recordType, seen, setup.token]);
+  }, [stream, recordType, seen, setup.token, mode]);
 
   function stopRecording() {
     if (recorder.current?.state === "recording") recorder.current.stop();
   }
 
-  // 준비 시간 세기 → 0 이 되면 녹화 시작
+  // 준비 시간 세기 → 0 이 되면 녹화 시작. 나가기 확인 창이 떠 있는 동안은 멈춘다.
   useEffect(() => {
-    if (step !== "prep") return;
+    if (step !== "prep" || exit) return;
     const timer = setTimeout(() => {
       if (left <= 1) void startRecording();
       else setLeft((value) => value - 1);
     }, 1000);
     return () => clearTimeout(timer);
-  }, [step, left, startRecording]);
+  }, [step, left, startRecording, exit]);
 
   // 녹화 시간 세기 → 최대 시간이면 멈춤
   useEffect(() => {
@@ -347,16 +401,83 @@ export default function VideoInterview({
     const timer = setInterval(() => {
       const sec = (performance.now() - startedAt.current) / 1000;
       setElapsed(sec);
-      if (sec >= setup.video.answerSec) stopRecording();
+      if (sec >= answerSec) stopRecording();
     }, 250);
     return () => clearInterval(timer);
-  }, [step, setup.video.answerSec]);
+  }, [step, answerSec]);
 
-  function beginPrep() {
+  function beginPrep(next: Mode = mode) {
     setTake(null);
     setFailure(null);
-    setLeft(setup.video.prepSec);
+    setMode(next);
+    setLeft(prepSecOf(next));
     setStep("prep");
+  }
+
+  /** 카메라를 끄고 하던 녹화는 버린다 — 나가거나 그만둘 때. */
+  function shutDown() {
+    discard.current = true;
+    if (recorder.current?.state === "recording") recorder.current.stop();
+    const media = streamRef.current;
+    streamRef.current = null;
+    media?.getTracks().forEach((track) => track.stop());
+    setStream(null);
+  }
+
+  function pickExit(kind: ExitKind) {
+    setExitMsg(null);
+    setExit(kind);
+  }
+
+  async function leave() {
+    if (exitBusy) return;
+    // 이어하기 안내에서 나가면 들어온 적이 없으니 기록하지 않는다.
+    if (resuming) {
+      shutDown();
+      setExit(null);
+      setEnded({ kind: "left" });
+      return;
+    }
+    setExitBusy(true);
+    try {
+      const done = await leaveAction(setup.token);
+      if (!done.ok) {
+        setExitMsg("나간 기록을 남기지 못했습니다. 창을 닫아도 같은 링크로 이어서 할 수 있습니다.");
+        return;
+      }
+      shutDown();
+      setExit(null);
+      setEnded({ kind: "left" });
+    } finally {
+      setExitBusy(false);
+    }
+  }
+
+  async function withdraw(reason: WithdrawReason) {
+    if (exitBusy) return;
+    setExitBusy(true);
+    setExitMsg(null);
+    try {
+      const done = await withdrawAction(setup.token, reason);
+      if (done.ok) {
+        shutDown();
+        setExit(null);
+        setEnded({ kind: "withdrawn", at: done.at, videos: done.videos });
+        return;
+      }
+      if (done.reason === "submitted" || done.reason === "closed") {
+        setExitMsg("이미 끝난 면접이라 그만둘 수 없습니다. 화면을 다시 불러옵니다.");
+        setTimeout(() => window.location.reload(), 1500);
+        return;
+      }
+      setExitMsg(
+        done.reason === "missing"
+          ? "면접 링크를 찾을 수 없습니다. 받은 링크를 다시 확인해 주세요."
+          : "처리하지 못했습니다. 연결을 확인하고 다시 눌러 주세요."
+      );
+    } finally {
+      setExitBusy(false);
+    }
   }
 
   async function send() {
@@ -410,20 +531,128 @@ export default function VideoInterview({
     }
   }
 
+  const kicker = `${setup.jobTitle} · 1차 영상 면접`;
+
+  if (ended?.kind === "withdrawn") {
+    return <WithdrawnScreen org={org} jobTitle={setup.jobTitle} at={ended.at} videos={ended.videos} />;
+  }
+  if (ended?.kind === "left") {
+    return (
+      <EndPage
+        org={org}
+        kicker={kicker}
+        tone="off"
+        title="잠시 나갔습니다"
+        facts={[
+          <span key="sent" className="num">보낸 답 {answers.length}개는 저장되어 있습니다</span>,
+          <span key="back" className="num">
+            {deadline ? `${deadline} 까지` : "기한 안에"} 같은 링크로 들어오면 질문 {progress.current}부터 이어집니다
+          </span>,
+          "이 창은 닫아도 됩니다",
+        ]}
+      >
+        <button type="button" onClick={() => window.location.reload()} className={`${btnPrimary} mt-7 h-11 px-5`}>
+          다시 들어가기
+        </button>
+      </EndPage>
+    );
+  }
+
   const checking = step === "check";
   const steps: TopStep[] = [
-    { label: "기기 확인", done: !checking, on: checking },
-    { label: `실전 ${progress.current} / ${total}`, on: !checking },
+    { label: "기기 확인", done: !checking && !resuming, on: checking && !resuming },
+    ...(practiced ? [{ label: "연습", done: !checking && !practicing, on: !checking && practicing }] : []),
+    { label: `실전 ${progress.current} / ${total}`, on: !checking && !practicing },
   ];
   const top = (
     <CandidateTop
-      title={`${setup.jobTitle} · 1차 영상 면접`}
+      title={kicker}
       steps={steps}
       setup={setup}
       rights={rights}
       onRights={onRights}
+      right={<ExitMenu disabled={step === "upload" || exitBusy} onPick={pickExit} />}
     />
   );
+  const dialog =
+    exit === "leave" ? (
+      <LeaveDialog
+        sent={answers.length}
+        current={progress.current}
+        deadline={deadline}
+        busy={exitBusy}
+        failure={exitMsg}
+        onStay={() => setExit(null)}
+        onLeave={() => void leave()}
+      />
+    ) : exit === "withdraw" ? (
+      <WithdrawDialog
+        videos={videos}
+        busy={exitBusy}
+        failure={exitMsg}
+        onStay={() => setExit(null)}
+        onWithdraw={(reason) => void withdraw(reason)}
+      />
+    ) : null;
+
+  // 이어하기 안내 — 어디까지 했고 어디서 다시 시작하는지
+  if (resuming) {
+    return (
+      <div className="min-h-dvh bg-canvas">
+        {top}
+        <main className="mx-auto w-full max-w-[560px] px-5 pb-16 pt-12 md:pt-20">
+          <p className="num text-[13px] text-ink-3">
+            {kicker}
+            {deadline ? ` · ${deadline} 까지` : ""}
+          </p>
+          <h1 className="num mt-2.5 text-[28px] font-bold tracking-tight text-ink">
+            질문 {progress.current}부터 이어서 합니다
+          </h1>
+          <ol className="mt-6 rounded-md border border-line bg-surface px-4">
+            {setup.questions.map((q, i) => {
+              const sent = i < session.questionIndex;
+              const now = i === session.questionIndex;
+              const main = answers.find((m) => m.questionId === q.id);
+              return (
+                <li key={q.id} className="flex items-center gap-2.5 border-t border-line py-2.5 first:border-t-0">
+                  <span
+                    aria-hidden
+                    className={`h-[7px] w-[7px] shrink-0 rounded-full ${sent ? "bg-st-ok" : now ? "bg-ink" : "bg-line-strong"}`}
+                  />
+                  <span className={`num text-sm ${now ? "font-semibold text-ink" : sent ? "text-ink" : "text-ink-3"}`}>
+                    질문 {i + 1}
+                  </span>
+                  <span className={`num ml-auto text-[13px] ${sent ? "text-st-ok-ink" : now ? "text-ink" : "text-ink-3"}`}>
+                    {sent
+                      ? `보냄${main?.media?.seconds ? ` · ${clock(main.media.seconds)}` : ""}`
+                      : now
+                        ? "준비 시간부터 다시"
+                        : "대기"}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="num mt-4 text-[13px] leading-relaxed text-ink-3">
+            기기 확인을 한 번 더 하고 들어갑니다. 연습 질문은 건너뜁니다.
+            {rights.leftAt ? ` 지난번 나간 시각 ${kstShort(rights.leftAt)}` : ""}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setResuming(false);
+              autoOpened.current = true;
+              void openDevices();
+            }}
+            className={`${btnPrimary} mt-6 h-12 w-full sm:w-auto sm:px-6`}
+          >
+            기기 확인하고 이어하기
+          </button>
+        </main>
+        {dialog}
+      </div>
+    );
+  }
 
   const live = (
     <video
@@ -439,7 +668,6 @@ export default function VideoInterview({
   );
 
   if (checking) {
-    const resumed = seen > 2;
     const segs = Math.round(level * 20);
     return (
       <div className="min-h-dvh bg-canvas">
@@ -545,8 +773,8 @@ export default function VideoInterview({
               </div>
             </div>
 
-            <button type="button" onClick={beginPrep} disabled={!stream || opening} className={`${btnPrimary} mt-2 h-12 w-full`}>
-              {resumed ? `이어서 · 질문 ${progress.current}` : "다음 · 실전 질문"}
+            <button type="button" onClick={() => beginPrep()} disabled={!stream || opening} className={`${btnPrimary} mt-2 h-12 w-full`}>
+              {practicing ? "다음 · 연습 질문" : seen > 2 ? `이어서 · 질문 ${progress.current}` : "다음 · 실전 질문"}
             </button>
             {stream ? (
               <button type="button" onClick={() => void openDevices({ cam: camId, mic: micId })} disabled={opening} className="mt-2 w-full text-center text-[13px] text-ink-3 hover:text-ink">
@@ -556,11 +784,12 @@ export default function VideoInterview({
             <p className="mt-3 text-center text-xs text-ink-3">표정·목소리 톤·배경은 평가하지 않습니다</p>
           </aside>
         </main>
+        {dialog}
       </div>
     );
   }
 
-  const followUp = prompt?.kind === "followUp";
+  const followUp = !practicing && prompt?.kind === "followUp";
   const takesLeft = take ? Math.max(0, maxTakes - take.take) : 0;
   const nowNote =
     step === "prep" ? "준비 중" : step === "rec" ? "녹화 중" : step === "review" ? "다시 보는 중" : "보내는 중";
@@ -571,9 +800,21 @@ export default function VideoInterview({
       <main className="mx-auto grid w-full max-w-[1200px] gap-8 px-5 py-7 md:grid-cols-[240px_minmax(0,1fr)] md:px-16">
         <nav aria-label="질문 목록">
           <ol className="flex flex-col gap-1">
+            {practiced ? (
+              <li aria-current={practicing ? "step" : undefined} className={`rounded-lg px-3.5 py-3 ${practicing ? "bg-mute" : ""}`}>
+                <div className="flex items-center gap-2">
+                  <span aria-hidden className={`h-[7px] w-[7px] shrink-0 rounded-full ${practicing ? "bg-ink" : "bg-line-strong"}`} />
+                  <span className={`text-sm ${practicing ? "font-semibold text-ink" : "text-ink-3"}`}>연습 질문</span>
+                  <span className={`ml-auto text-xs ${practicing ? "font-semibold text-ink" : "text-ink-3"}`}>
+                    {practicing ? "지금" : "끝"}
+                  </span>
+                </div>
+                <p className="mt-1 pl-[15px] text-xs text-ink-3">{practicing ? nowNote : "저장 안 됨"}</p>
+              </li>
+            ) : null}
             {setup.questions.map((q, i) => {
               const sent = i < session.questionIndex;
-              const now = i === session.questionIndex;
+              const now = !practicing && i === session.questionIndex;
               return (
                 <li
                   key={q.id}
@@ -599,14 +840,28 @@ export default function VideoInterview({
               );
             })}
           </ol>
+          {practicing ? (
+            <p className="mt-4 px-3.5 text-xs leading-relaxed text-ink-3">
+              연습은 몇 번이든 할 수 있고 담당자에게 보내지 않습니다. 실전 질문은 [실전 시작]을 누르면 나옵니다
+            </p>
+          ) : null}
         </nav>
 
         <section className="min-w-0">
-          <p className="num text-[13px] text-ink-3">
-            질문 {progress.current} / {total}
-            {followUp ? " · 추가 질문" : ""}
-          </p>
-          <h1 className="mt-2 text-xl font-semibold leading-relaxed text-ink">{prompt?.text}</h1>
+          {practicing ? (
+            <p className="flex items-center gap-2 text-[13px] text-ink-3">
+              연습 질문
+              <span className="rounded-full border border-line-strong px-2 py-0.5 text-xs text-ink-2">연습 · 저장 안 됨</span>
+            </p>
+          ) : (
+            <p className="num text-[13px] text-ink-3">
+              질문 {progress.current} / {total}
+              {followUp ? " · 추가 질문" : ""}
+            </p>
+          )}
+          <h1 className="mt-2 text-xl font-semibold leading-relaxed text-ink">
+            {practicing ? PRACTICE_QUESTION : prompt?.text}
+          </h1>
 
           <div className="relative mt-5 h-[300px] overflow-hidden rounded-[10px] bg-[#111] md:h-[400px]">
             {live}
@@ -622,7 +877,7 @@ export default function VideoInterview({
               <div className="absolute left-3 top-3 flex items-center gap-2 rounded-md bg-black/60 px-2.5 py-1 text-xs text-white">
                 <span aria-hidden className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
                 <span className="num">
-                  녹화 중 {clock(elapsed)} / {clock(setup.video.answerSec)}
+                  {practicing ? "연습 녹화" : "녹화 중"} {clock(elapsed)} / {clock(answerSec)}
                 </span>
               </div>
             ) : null}
@@ -632,7 +887,7 @@ export default function VideoInterview({
                 src={take.url}
                 controls
                 playsInline
-                aria-label="녹화한 답변 다시 보기"
+                aria-label={practicing ? "연습 녹화 다시 보기" : "녹화한 답변 다시 보기"}
                 className="absolute inset-0 h-full w-full object-contain"
               />
             ) : null}
@@ -642,7 +897,7 @@ export default function VideoInterview({
             <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-mute">
               <div
                 className="h-full rounded-full bg-ink"
-                style={{ width: `${Math.min(100, (elapsed / setup.video.answerSec) * 100)}%` }}
+                style={{ width: `${Math.min(100, (elapsed / answerSec) * 100)}%` }}
               />
             </div>
           ) : null}
@@ -661,16 +916,26 @@ export default function VideoInterview({
             ) : null}
             {step === "rec" ? (
               <button type="button" onClick={stopRecording} disabled={elapsed < 3} className={`${btnPrimary} h-12 sm:w-56`}>
-                답변 끝내기
+                {practicing ? "연습 끝내기" : "답변 끝내기"}
               </button>
             ) : null}
-            {step === "review" ? (
+            {step === "review" && practicing ? (
+              <>
+                <button type="button" onClick={() => beginPrep("real")} className={`${btnPrimary} h-12 sm:w-56`}>
+                  실전 시작
+                </button>
+                <button type="button" onClick={() => beginPrep("practice")} className={`${btnSecondary} h-12 sm:w-56`}>
+                  연습 한 번 더
+                </button>
+              </>
+            ) : null}
+            {step === "review" && !practicing ? (
               <>
                 <button type="button" onClick={send} disabled={busy} className={`${btnPrimary} h-12 sm:w-56`}>
                   이 답변 보내기
                 </button>
                 {takesLeft > 0 ? (
-                  <button type="button" onClick={beginPrep} disabled={busy} className={`${btnSecondary} h-12 sm:w-56`}>
+                  <button type="button" onClick={() => beginPrep()} disabled={busy} className={`${btnSecondary} h-12 sm:w-56`}>
                     다시 찍기 (남은 {takesLeft}번)
                   </button>
                 ) : null}
@@ -691,17 +956,21 @@ export default function VideoInterview({
 
           {step === "review" ? (
             <p className="num mt-2.5 text-xs text-ink-3">
-              {clock(take?.seconds ?? 0)} 녹화 · 보낸 답변은 바꿀 수 없습니다
-              {takesLeft > 0 ? "" : " · 다시 찍기를 다 썼습니다"}
+              {practicing
+                ? `${clock(take?.seconds ?? 0)} 녹화 · 이 브라우저에서만 재생, 올리지 않음`
+                : `${clock(take?.seconds ?? 0)} 녹화 · 보낸 답변은 바꿀 수 없습니다${takesLeft > 0 ? "" : " · 다시 찍기를 다 썼습니다"}`}
             </p>
           ) : null}
           {step === "prep" ? (
             <p className="num mt-2.5 text-xs text-ink-3">
-              답변은 최대 {clock(setup.video.answerSec)} · 시간이 되면 녹화가 멈춥니다
+              {practicing
+                ? `연습 녹화는 최대 ${clock(answerSec)} · 올리지 않습니다`
+                : `답변은 최대 ${clock(answerSec)} · 시간이 되면 녹화가 멈춥니다`}
             </p>
           ) : null}
         </section>
       </main>
+      {dialog}
     </div>
   );
 }

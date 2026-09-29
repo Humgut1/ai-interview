@@ -69,6 +69,9 @@ export default function ConsentScreen({
   const steps: [string, string][] = video
     ? [
         ["기기 확인", "카메라 · 마이크"],
+        ...(setup.video.practice
+          ? ([["연습 질문", "몇 번이든 · 저장하지 않고 담당자에게 안 보냄"]] as [string, string][])
+          : []),
         [`실전 질문 ${n}개`, `질문마다 준비 ${clock(prepSec)} · 답변 최대 ${clock(answerSec)}`],
       ]
     : [

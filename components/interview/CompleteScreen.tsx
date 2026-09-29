@@ -1,71 +1,59 @@
 "use client";
 
+import { clock } from "@/components/interview/ConsentScreen";
+import EndPage from "@/components/interview/EndPage";
 import RequestBox from "@/components/interview/RequestBox";
-import { cardClass, labelClass } from "@/components/ui/styles";
 import type { CandidateRights } from "@/lib/store";
 import type { InterviewSession, InterviewSetup } from "@/lib/types";
 
-const NEXT_STEPS = [
-  "채용 담당자가 답변 내용을 검토합니다.",
-  "검토 결과는 지원 시 입력하신 연락처로 안내드립니다.",
-  "다음 전형이 있는 경우, 오늘 답변을 바탕으로 대면 면접이 진행될 수 있습니다.",
-];
-
+/** C9 제출 완료 — 무엇이 어떻게 되는지 + 보낸 답 목록 + 요청(결과 설명·기록 삭제). */
 export default function CompleteScreen({
   setup,
   session,
   rights,
   onRights,
+  org,
 }: {
   setup: InterviewSetup;
   session: InterviewSession;
   rights: CandidateRights;
   onRights: (rights: CandidateRights) => void;
+  org: string;
 }) {
-  const answered = session.messages.filter(
-    (message) => message.role === "candidate"
-  ).length;
+  const video = setup.mode === "video";
+  // 질문마다 보낸 답 — 첫 답 + 되묻기에 대한 답
+  const rows = setup.questions.map((q, i) => {
+    const answers = session.messages.filter((m) => m.role === "candidate" && m.questionId === q.id);
+    const [main, ...more] = answers;
+    const len = (sec?: number) => (sec ? clock(sec) : "보냄");
+    const note = main
+      ? [video ? len(main.media?.seconds) : "보냄", ...more.map((m) => `되묻기 ${video ? len(m.media?.seconds) : "보냄"}`)].join(" · ")
+      : "답 없음";
+    return { key: q.id, label: `질문 ${i + 1}`, note, sent: Boolean(main) };
+  });
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-5 py-16">
-      <p className={labelClass}>제출 완료</p>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink">
-        면접이 끝났습니다. 수고하셨습니다.
-      </h1>
-      <p className="mt-3 leading-relaxed text-ink-2">
-        {setup.jobTitle} 직무의 1차 면접에 시간 내주셔서 감사합니다.
-      </p>
-
-      <dl className={`${cardClass} mt-6 grid grid-cols-2 divide-x divide-line`}>
-        <div className="px-4 py-3.5">
-          <dt className={labelClass}>받은 질문</dt>
-          <dd className="num mt-1.5 text-xl text-ink">
-            {setup.questions.length}
-            <span className="ml-0.5 text-xs text-ink-3">문항</span>
-          </dd>
-        </div>
-        <div className="px-4 py-3.5">
-          <dt className={labelClass}>보낸 답변</dt>
-          <dd className="num mt-1.5 text-xl text-ink">
-            {answered}
-            <span className="ml-0.5 text-xs text-ink-3">회</span>
-          </dd>
-        </div>
-      </dl>
-
-      <section className={`${cardClass} mt-4 px-5 py-4`}>
-        <h2 className={labelClass}>다음 절차</h2>
-        <ol className="mt-3 flex flex-col divide-y divide-line">
-          {NEXT_STEPS.map((step, index) => (
-            <li key={step} className="flex gap-3 py-2.5 first:pt-0 last:pb-0">
-              <span aria-hidden className="num shrink-0 text-xs text-ink-3">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <span className="text-sm leading-relaxed text-ink-2">{step}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
+    <EndPage
+      org={org}
+      kicker={`${setup.jobTitle} · 1차 ${video ? "영상 " : ""}면접`}
+      title="제출했습니다"
+      facts={[
+        "채용 담당자가 답변을 직접 보고 판단합니다",
+        "결과는 지원할 때 적은 연락처로 알려 드립니다",
+        <span key="keep" className="num">
+          보낸 답은 바꿀 수 없습니다 · 보관 {rights.retentionDays}일 뒤 자동 삭제
+        </span>,
+      ]}
+    >
+      <ol className="mt-6 rounded-md border border-line bg-surface px-4">
+        {rows.map((row) => (
+          <li key={row.key} className="flex items-center gap-2.5 border-t border-line py-2.5 first:border-t-0">
+            <span aria-hidden className={`h-[7px] w-[7px] shrink-0 rounded-full ${row.sent ? "bg-st-ok" : "bg-line-strong"}`} />
+            <span className="num text-sm text-ink">{row.label}</span>
+            <span className="num ml-auto text-[13px] text-ink-3">{row.note}</span>
+          </li>
+        ))}
+      </ol>
 
       <RequestBox
         token={setup.token}
@@ -75,12 +63,7 @@ export default function CompleteScreen({
         title="요청하기"
       />
 
-      <p className="mt-6 text-sm text-ink-3">
-        이 창은 닫으셔도 됩니다. 제출한 답변은 그대로 전달되었습니다. 답변 기록은
-        제출일로부터 {rights.retentionDays}일 뒤 자동으로 지웁니다. 이 링크로 다시 들어오면
-        요청을 할 수 있습니다.
-      </p>
-
-    </div>
+      <p className="mt-6 text-[13px] text-ink-3">이 창은 닫아도 됩니다 · 이 링크로 다시 들어오면 요청을 할 수 있습니다</p>
+    </EndPage>
   );
 }
