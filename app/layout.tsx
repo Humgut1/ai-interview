@@ -1,18 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, JetBrains_Mono, Unbounded } from "next/font/google";
+import { Unbounded } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-// 점수를 표시하는 숫자에만 쓴다. 자리가 고정돼 있어 값이 바뀌어도 흔들리지 않는다.
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-});
 
 // 로고 글자(talentcore) 전용. components/brand/BrandMark.tsx 가 --font-unbounded 를 쓴다.
 const unbounded = Unbounded({ subsets: ["latin"], weight: ["700"], variable: "--font-unbounded" });
@@ -27,8 +15,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${jetbrainsMono.variable} ${unbounded.variable} h-full antialiased`}
+      className={`${unbounded.variable} h-full antialiased`}
     >
+      <head>
+        {/* 한글 글꼴. Hire·Core 와 같은 Pretendard — 없으면 윈도 기본 글꼴로 떨어져 제품마다 글자가 달라 보인다. */}
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
+      </head>
       <body className="min-h-full bg-canvas text-ink">{children}</body>
     </html>
   );

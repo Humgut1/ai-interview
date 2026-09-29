@@ -2,27 +2,21 @@
 
 import { useState } from "react";
 import BrandMark from "@/components/brand/BrandMark";
-import RequestBox from "@/components/interview/RequestBox";
 import { btnPrimary } from "@/components/ui/styles";
-import type { CandidateRights } from "@/lib/store";
 import type { InterviewSetup } from "@/lib/types";
 
 /**
  * 폰·좁은 화면으로 영상 면접 링크를 열었을 때. 면접은 시작하지 않고 아무것도 기록하지 않는다.
- * 링크를 복사해 PC 로 옮기게 하고, PC 가 없으면 담당자 면접을 요청할 수 있다.
+ * 링크를 복사해 PC 로 옮기게 한다.
  */
 export default function PhoneGate({
   setup,
   deadline,
   org,
-  rights,
-  onRights,
 }: {
   setup: InterviewSetup;
   deadline: string | null;
   org: string;
-  rights: CandidateRights;
-  onRights: (rights: CandidateRights) => void;
 }) {
   const [copied, setCopied] = useState<"ok" | "fail" | null>(null);
   const url = typeof window === "undefined" ? "" : window.location.href;
@@ -72,15 +66,6 @@ export default function PhoneGate({
             복사가 막혀 있습니다. 위 링크를 길게 눌러 복사해 주세요.
           </p>
         ) : null}
-
-        <RequestBox
-          token={setup.token}
-          rights={rights}
-          kinds={["human"]}
-          onRights={onRights}
-          title="PC 가 없으면"
-          bare
-        />
       </main>
     </div>
   );

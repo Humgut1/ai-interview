@@ -20,12 +20,12 @@ export default async function DashboardPage() {
   const staff = await requireStaff();
   if (!isStoreConfigured()) return <StoreMissing />;
 
-  // 보관 기간이 지난 기록은 대시보드를 열 때도 지운다(매일 도는 일이 빠져도 늦지 않게).
-  try {
-    await purgeExpired();
-  } catch {}
-  // 받아 적기가 밀린 답변도 이때 보낸다(화면은 기다리지 않는다)
-  after(() => sttSweep().catch(() => {}));
+  // 보관 기간이 지난 기록 지우기·밀린 받아 적기는 화면을 다 보낸 뒤에 한다(매일 도는 일이 빠져도 늦지 않게).
+  // 화면이 이걸 기다리면 공고 목록이 늦게 뜬다. 지운 결과는 다음에 열 때 반영된다.
+  after(async () => {
+    await purgeExpired().catch(() => {});
+    await sttSweep().catch(() => {});
+  });
 
   const rows = (await listJobs()).map(({ job, candidates }) => ({
     job,

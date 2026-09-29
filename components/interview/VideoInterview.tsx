@@ -119,7 +119,6 @@ export default function VideoInterview({
   session,
   onSession,
   rights,
-  onRights,
   org,
   deadline,
 }: {
@@ -127,7 +126,6 @@ export default function VideoInterview({
   session: InterviewSession;
   onSession: (session: InterviewSession) => void;
   rights: CandidateRights;
-  onRights: (rights: CandidateRights) => void;
   org: string;
   /** 마감 — "10/11(토) 23:59" */
   deadline: string | null;
@@ -568,9 +566,6 @@ export default function VideoInterview({
     <CandidateTop
       title={kicker}
       steps={steps}
-      setup={setup}
-      rights={rights}
-      onRights={onRights}
       right={<ExitMenu disabled={step === "upload" || exitBusy} onPick={pickExit} />}
     />
   );

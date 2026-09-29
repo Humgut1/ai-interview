@@ -74,22 +74,16 @@ body {
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-jetbrains-mono);
+  --font-sans: "Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 body {
-  font-family:
-    var(--font-geist-sans),
-    "Pretendard",
-    "Apple SD Gothic Neo",
-    "Malgun Gothic",
-    sans-serif;
+  font-family: var(--font-sans);
 }
 
-/* 숫자는 폭이 고정된 서체로 — 점수가 바뀔 때 자리가 흔들리지 않는다. */
+/* 숫자는 같은 폭으로 — 점수가 바뀔 때 자리가 흔들리지 않는다.
+   고정폭 서체를 쓰면 같은 칸 안의 한글("남은 3일")이 굴림체로 떨어져 깨져 보인다 → 본문 서체 + tabular-nums. */
 .num {
-  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
 }

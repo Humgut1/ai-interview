@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import RequestList from "@/components/requests/RequestList";
 import { StoreMissing } from "@/components/ui/Notice";
 import StaffShell from "@/components/ui/StaffShell";
@@ -16,10 +17,10 @@ export const dynamic = "force-dynamic";
 export default async function RequestsPage() {
   const staff = await requireStaff();
   if (!isStoreConfigured()) return <StoreMissing />;
-  // 10일 넘은 삭제 요청은 여기서도 먼저 지운다(매일 한 번 도는 것과 같은 일).
-  try {
-    await purgeExpired();
-  } catch {}
+  // 10일 넘은 삭제 요청 지우기는 화면을 보낸 뒤에(매일 한 번 도는 것과 같은 일 — 기다리게 하지 않는다).
+  after(async () => {
+    await purgeExpired().catch(() => {});
+  });
   const rows = await listRequests();
 
   return (

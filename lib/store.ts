@@ -155,8 +155,10 @@ export async function listJobs(): Promise<
     .order("created_at", { ascending: false });
   check(error, "공고 목록");
   const ids = (jobs ?? []).map((job) => job.id);
-  const interviews = ids.length ? await interviewRows(ids) : [];
-  const depts = await hireDepts((jobs ?? []).map((j) => j.hire_position_id).filter(Boolean));
+  const [interviews, depts] = await Promise.all([
+    ids.length ? interviewRows(ids) : Promise.resolve([]),
+    hireDepts((jobs ?? []).map((j) => j.hire_position_id).filter(Boolean)),
+  ]);
   return (jobs ?? []).map((row) => {
     const mine = interviews.filter((iv) => iv.job_id === row.id);
     const total = (row.questions ?? []).length;

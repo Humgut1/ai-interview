@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import CandidateTop from "@/components/interview/CandidateTop";
-import RequestBox from "@/components/interview/RequestBox";
 import { btnPrimary } from "@/components/ui/styles";
 import type { CandidateRights } from "@/lib/store";
 import type { InterviewSetup } from "@/lib/types";
@@ -37,7 +36,7 @@ function dataRows(rights: CandidateRights, video: boolean): [string, string][] {
       ? ([["국외 처리", "평가 보조를 위해 미국 Anthropic 의 AI 서버에서 처리합니다. 학습에는 쓰이지 않습니다."]] as [string, string][])
       : []),
     ["보관 기간", `제출일로부터 ${rights.retentionDays}일, 지나면 자동 삭제`],
-    ["요청할 수 있는 것", "담당자 면접 · 결과 설명 · 기록 삭제 (불이익 없음)"],
+    ["요청할 수 있는 것", "결과 설명 · 기록 삭제 (불이익 없음)"],
   ];
 }
 
@@ -45,7 +44,6 @@ function dataRows(rights: CandidateRights, video: boolean): [string, string][] {
 export default function ConsentScreen({
   setup,
   rights,
-  onRights,
   onStart,
   org,
   deadline,
@@ -54,7 +52,6 @@ export default function ConsentScreen({
 }: {
   setup: InterviewSetup;
   rights: CandidateRights;
-  onRights: (rights: CandidateRights) => void;
   onStart: () => void;
   org: string;
   deadline: string | null;
@@ -93,7 +90,7 @@ export default function ConsentScreen({
 
   return (
     <div className="min-h-dvh bg-canvas">
-      <CandidateTop title={org} setup={setup} rights={rights} onRights={onRights} />
+      <CandidateTop title={org} />
       <main className="mx-auto grid w-full max-w-[1200px] gap-10 px-5 py-10 md:grid-cols-[minmax(0,1fr)_460px] md:px-16 md:py-12">
         <section className="min-w-0">
           <p className="num text-[13px] text-ink-3">
@@ -169,14 +166,6 @@ export default function ConsentScreen({
               {failure}
             </p>
           ) : null}
-          <RequestBox
-            token={setup.token}
-            rights={rights}
-            kinds={["human"]}
-            onRights={onRights}
-            title="AI 면접이 어려우면"
-            bare
-          />
         </aside>
       </main>
     </div>

@@ -2,30 +2,21 @@
 
 import { useState, type ReactNode } from "react";
 import BrandMark from "@/components/brand/BrandMark";
-import RequestBox from "@/components/interview/RequestBox";
-import type { CandidateRights } from "@/lib/store";
-import type { InterviewSetup } from "@/lib/types";
 
 /** 후보자 화면 머리 띠의 단계 하나. done 이면 초록 점, on 이면 진하게. */
 export type TopStep = { label: string; done?: boolean; on?: boolean };
 
 /**
  * 후보자 화면 공통 머리 띠 — 로고 + 제목 · (가운데) 단계 · (오른쪽) 도움말.
- * 도움말을 누르면 띠 바로 아래에 안내와 [담당자 면접 요청]이 펼쳐진다.
+ * 도움말을 누르면 띠 바로 아래에 안내가 펼쳐진다.
  */
 export default function CandidateTop({
   title,
   steps,
-  setup,
-  rights,
-  onRights,
   right,
 }: {
   title: string;
   steps?: TopStep[];
-  setup: InterviewSetup;
-  rights: CandidateRights;
-  onRights: (rights: CandidateRights) => void;
   /** 오른쪽 끝에 붙는 것 — 영상 면접의 [나가기] 메뉴 */
   right?: ReactNode;
 }) {
@@ -76,15 +67,6 @@ export default function CandidateTop({
               <li>· 창을 닫아도 같은 링크로 다시 들어오면 그 질문부터 이어집니다</li>
               <li>· 보낸 답변은 바꿀 수 없습니다</li>
             </ul>
-            {setup.mode === "video" ? (
-              <RequestBox
-                token={setup.token}
-                rights={rights}
-                kinds={["human"]}
-                onRights={onRights}
-                title="AI 면접이 어려우면"
-              />
-            ) : null}
           </div>
         </div>
       ) : null}

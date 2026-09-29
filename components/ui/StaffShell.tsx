@@ -24,12 +24,7 @@ function Icon({ d }: { d: string }) {
  * 담당자 화면 틀. 넓은 화면은 왼쪽 메뉴(rail 이면 아이콘만), 좁은 화면은 위쪽 한 줄.
  * 후보자 요청 수는 여기서 직접 센다 — 어느 화면에서도 같은 숫자가 보이게.
  */
-export default async function StaffShell({
-  current,
-  who,
-  rail = false,
-  children,
-}: {
+export default async function StaffShell(props: {
   current: StaffNav;
   who: string;
   /** 면접 확인처럼 가로 폭이 많이 필요한 화면은 아이콘 메뉴(64px) */
@@ -40,7 +35,23 @@ export default async function StaffShell({
   try {
     requests = await openRequestCount();
   } catch {}
+  return <StaffFrame {...props} requests={requests} />;
+}
 
+/** 틀만 — 데이터 없이 그린다. 화면을 옮길 때 loading.tsx 가 이것으로 바로 틀을 띄운다. */
+export function StaffFrame({
+  current,
+  who,
+  rail = false,
+  requests = 0,
+  children,
+}: {
+  current: StaffNav;
+  who: string;
+  rail?: boolean;
+  requests?: number;
+  children: ReactNode;
+}) {
   return (
     <div className="min-h-dvh bg-surface md:flex">
       <aside

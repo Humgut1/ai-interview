@@ -125,7 +125,7 @@ export default function ChatWindow({
   if (setup.mode === "video" && session.phase !== "done") {
     if (phone === null) return <div className="min-h-dvh bg-canvas" />;
     if (phone) {
-      return <PhoneGate setup={setup} deadline={deadline} org={org} rights={rights} onRights={setRights} />;
+      return <PhoneGate setup={setup} deadline={deadline} org={org} />;
     }
   }
 
@@ -134,7 +134,6 @@ export default function ChatWindow({
       <ConsentScreen
         setup={setup}
         rights={rights}
-        onRights={setRights}
         onStart={handleStart}
         org={org}
         deadline={deadline}
@@ -157,7 +156,6 @@ export default function ChatWindow({
         session={session}
         onSession={setSession}
         rights={rights}
-        onRights={setRights}
         org={org}
         deadline={deadline}
       />
