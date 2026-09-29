@@ -6,7 +6,7 @@ export const inputClass =
 export const textareaClass = `${inputClass} resize-y leading-relaxed`;
 
 export const errorInputClass =
-  "border-rose-400 focus:border-rose-500 focus:ring-rose-100 dark:focus:ring-rose-900";
+  "border-st-bad focus:border-st-bad focus:ring-transparent";
 
 type FieldProps = {
   label: string;
@@ -32,14 +32,14 @@ export function Field({
         className="flex items-baseline gap-2 text-sm font-medium text-ink"
       >
         {label}
-        {required ? <span className="text-rose-500">*</span> : null}
+        {required ? <span className="text-st-bad">*</span> : null}
         {hint ? (
           <span className="text-xs font-normal text-ink-3">{hint}</span>
         ) : null}
       </label>
       {children}
       {error ? (
-        <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">
+        <p role="alert" className="text-xs text-st-bad">
           {error}
         </p>
       ) : null}

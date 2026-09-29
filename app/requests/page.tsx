@@ -2,6 +2,7 @@ import RequestList from "@/components/requests/RequestList";
 import { StoreMissing } from "@/components/ui/Notice";
 import StaffShell from "@/components/ui/StaffShell";
 import { requireStaff } from "@/lib/auth/staff";
+import { hireBase } from "@/lib/candidates";
 import { isStoreConfigured } from "@/lib/db";
 import { listRequests, purgeExpired } from "@/lib/store";
 
@@ -23,14 +24,12 @@ export default async function RequestsPage() {
 
   return (
     <StaffShell current="requests" who={staff.name}>
-      <main className="mx-auto w-full max-w-[900px] px-4 pb-20 lg:px-6">
-        <div className="py-6">
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">후보자 요청</h1>
-          <p className="mt-1 text-[13px] text-ink-2">
-            삭제 요청은 10일 안에 처리합니다. 넘기면 자동으로 지웁니다.
-          </p>
+      <main className="mx-auto w-full max-w-[1180px] px-4 pb-20 lg:px-6">
+        <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 py-6">
+          <h1 className="text-xl font-bold text-ink">후보자 요청</h1>
+          <p className="text-[13px] text-ink-3">삭제 요청은 10일 안에 · 넘기면 자동 삭제</p>
         </div>
-        <RequestList initial={rows} />
+        <RequestList initial={rows} hireUrl={hireBase()} />
       </main>
     </StaffShell>
   );

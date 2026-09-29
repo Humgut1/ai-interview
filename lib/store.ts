@@ -932,18 +932,29 @@ export async function saveReview(
 export async function hirePosition(pid: string) {
   const { data, error } = await db()
     .from("positions")
-    .select("id, title, jd")
+    .select("id, title, jd, dept")
     .eq("id", pid)
     .maybeSingle();
   check(error, "Hire 공고 조회");
   if (!data) return null;
+  // 후보자 수는 못 읽어도 화면은 떠야 한다
+  const { count } = await db()
+    .from("candidates")
+    .select("id", { count: "exact", head: true })
+    .eq("position_id", pid);
   // 사내 메모 첫 줄(※ TalentCore 요청 …)은 빼고 넘긴다
   const jd = String(data.jd ?? "")
     .split("\n")
     .filter((line) => !line.trim().startsWith("※"))
     .join("\n")
     .trim();
-  return { id: data.id as string, title: String(data.title ?? ""), jd };
+  return {
+    id: data.id as string,
+    title: String(data.title ?? ""),
+    jd,
+    dept: data.dept ? String(data.dept) : "",
+    candidates: count ?? null,
+  };
 }
 
 /** 그 Hire 공고에 연결된 질문 묶음 — 여러 개면 가장 최근 것. */
@@ -1444,7 +1455,10 @@ export interface RequestRow extends ScreenRequest {
   jobTitle: string;
   hireCandidateId: string | null;
   hirePositionId: string | null;
+  /** Hire 후보자 이름 — 못 읽으면 라벨 */
+  name: string;
   submitted: boolean;
+  submittedAt: string | null;
   purged: boolean;
 }
 
@@ -1452,13 +1466,15 @@ export async function listRequests(opts: { openOnly?: boolean } = {}): Promise<R
   let q = db()
     .from("screen_requests")
     .select(
-      "*, screen_interviews(label, stage, purged_at, hire_candidate_id, screen_jobs(title, hire_position_id))"
+      "*, screen_interviews(label, stage, completed_at, purged_at, hire_candidate_id, screen_jobs(title, hire_position_id))"
     )
     .order("created_at", { ascending: false })
     .limit(200);
   if (opts.openOnly) q = q.eq("status", "open");
   const { data, error } = await q;
   check(error, "요청 목록");
+  const ivOf = (row: any) => (Array.isArray(row.screen_interviews) ? row.screen_interviews[0] : row.screen_interviews);
+  const names = await hireNames((data ?? []).map((row: any) => ivOf(row)?.hire_candidate_id));
   return (data ?? []).map((row: any) => {
     const iv = Array.isArray(row.screen_interviews) ? row.screen_interviews[0] : row.screen_interviews;
     const job = Array.isArray(iv?.screen_jobs) ? iv.screen_jobs[0] : iv?.screen_jobs;
@@ -1468,7 +1484,9 @@ export async function listRequests(opts: { openOnly?: boolean } = {}): Promise<R
       jobTitle: job?.title ?? "",
       hireCandidateId: iv?.hire_candidate_id ?? null,
       hirePositionId: job?.hire_position_id ?? null,
+      name: names.get(iv?.hire_candidate_id)?.name || iv?.label || "",
       submitted: iv?.stage === "제출완료",
+      submittedAt: iv?.completed_at ? toKst(iv.completed_at) : null,
       purged: Boolean(iv?.purged_at),
     };
   });
